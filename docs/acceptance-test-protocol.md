@@ -159,6 +159,12 @@ Confirm:
 
 Do not optimize config parsing, hashing, UUID generation, or logging unless measurements show they matter.
 
+### Release compatibility and reproducibility
+
+Issue: [#12](https://github.com/danceoflogic/openclaw-deterministic-router/issues/12)
+
+Before the first release, align the declared OpenClaw compatibility range with versions that have actually passed the loader and acceptance gates. Also make the lockfile/dependency reproducibility policy explicit.
+
 ## OpenClaw work procedure
 
 For each issue:
@@ -183,7 +189,7 @@ AUTO rollout is eligible for a deliberate release decision only when all of the 
 - deterministic local classification;
 - correct policy mapping;
 - selected/effective provider-model correlation;
-- manual selection protection across restart;
+- manual selection protection across restart and session reset/deletion;
 - shadow-mode integration;
 - attachment-floor integration;
 - AUTO application;
@@ -191,6 +197,7 @@ AUTO rollout is eligible for a deliberate release decision only when all of the 
 - independent subagent behavior;
 - no unexplained Sol escalation;
 - verified `shadow` and `off` kill-switch behavior;
-- acceptable measured overhead.
+- acceptable measured overhead;
+- compatibility metadata that matches tested evidence and an explicit dependency reproducibility policy.
 
 Until then, keep `shadow` as the operational default.
