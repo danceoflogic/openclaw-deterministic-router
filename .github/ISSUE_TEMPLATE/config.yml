@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: OpenClaw documentation
+    url: https://docs.openclaw.ai/
+    about: Check OpenClaw host/plugin behavior before filing an integration bug.
