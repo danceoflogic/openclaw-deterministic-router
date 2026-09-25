@@ -7,7 +7,7 @@ A local, deterministic and auditable model-routing plugin for OpenClaw.
 
 The project is designed for one job: **route each eligible OpenClaw turn to an explicitly configured model without spending an LLM call to decide which model should answer.**
 
-> **Project status:** experimental / shadow-first. `shadow` is the default mode. Automatic model overrides should only be enabled after the integration gates in the implementation plan pass on the target OpenClaw runtime.
+> **Project status:** experimental / shadow-first. `shadow` is the default mode. The current development and integration target is **OpenClaw 2026.9.6**. Automatic model overrides should only be enabled after the integration gates in the implementation plan pass on the target runtime.
 
 ## Why this exists
 
@@ -74,6 +74,16 @@ Classify and log what *would* have been selected, but return no model/provider o
 Apply `providerOverride` and `modelOverride` from `before_model_resolve`, subject to the persisted-selection and session-identity guards.
 
 `auto` is intentionally not the default.
+
+## OpenClaw compatibility
+
+| OpenClaw version | Status |
+|---|---|
+| `2026.9.6` | Current development and integration target |
+| `< 2026.9.6` | Not supported by the current baseline |
+| `> 2026.9.6` | Re-run the hook compatibility gates before enabling `auto` |
+
+The package is compiled and tested against OpenClaw `2026.9.6`. The router deliberately treats host-version compatibility as an integration gate because model/session hook contracts can evolve independently of the deterministic classifier.
 
 ## Installation for development
 
