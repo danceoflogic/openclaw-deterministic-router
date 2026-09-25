@@ -1,19 +1,11 @@
 [
-  {
-    "id": "simple-greeting",
-    "prompt": "Hello"
-  },
-  {
-    "id": "routine-summary",
-    "prompt": "Summarise this note into three concise bullets."
-  },
-  {
-    "id": "technical-debug",
-    "prompt": "Debug this distributed database architecture and identify the failure modes."
-  },
-  {
-    "id": "reasoning-proof",
-    "prompt": "Prove this theorem formally, step by step, and derive the result.",
-    "expectedTier": "REASONING"
-  }
+  { "id": "simple-greeting", "prompt": "Hello", "expectedTokens": 2, "expectedClassifierTier": "SIMPLE", "attachmentCount": 0, "expectedEffectiveTier": "SIMPLE" },
+  { "id": "medium-long-summary", "prompt": "Summarise this note into three concise bullets. ", "repeat": 100, "expectedTokens": 1200, "expectedClassifierTier": "MEDIUM", "attachmentCount": 0, "expectedEffectiveTier": "MEDIUM" },
+  { "id": "complex-structured-agentic-task", "prompt": "Create and implement a function class with import async await. First analyse the quantum FPGA architecture and distributed database infrastructure, then develop the service. Read documentation, edit sources, test, deploy, verify, and confirm the result. Use JSON output within a maximum budget; do not omit constraints.", "expectedTokens": 80, "expectedClassifierTier": "COMPLEX", "attachmentCount": 0, "expectedEffectiveTier": "COMPLEX" },
+  { "id": "reasoning-proof", "prompt": "Prove this theorem formally, step by step, and derive the result.", "expectedTokens": 17, "expectedClassifierTier": "REASONING", "attachmentCount": 0, "expectedEffectiveTier": "REASONING" },
+  { "id": "ambiguous-routine-summary", "prompt": "Summarise this note into three concise bullets.", "expectedTokens": 12, "expectedClassifierTier": null, "attachmentCount": 0, "expectedEffectiveTier": "COMPLEX" },
+  { "id": "attachment-promotes-simple", "prompt": "Hello", "expectedTokens": 2, "expectedClassifierTier": "SIMPLE", "attachmentCount": 1, "expectedEffectiveTier": "MEDIUM" },
+  { "id": "attachment-never-demotes-reasoning", "prompt": "Prove this theorem formally, step by step, and derive the result.", "expectedTokens": 17, "expectedClassifierTier": "REASONING", "attachmentCount": 1, "expectedEffectiveTier": "REASONING" },
+  { "id": "at-complex-token-boundary", "prompt": "x", "repeat": 2000, "expectedTokens": 500, "expectedClassifierTier": null, "attachmentCount": 0, "expectedEffectiveTier": "COMPLEX" },
+  { "id": "above-complex-token-boundary", "prompt": "x", "repeat": 2004, "expectedTokens": 501, "expectedClassifierTier": "MEDIUM", "attachmentCount": 0, "expectedEffectiveTier": "MEDIUM" }
 ]
