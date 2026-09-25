@@ -87,6 +87,11 @@ The package is compiled and tested against OpenClaw `2026.9.6`. The router delib
 
 ## Installation for development
 
+Prerequisites for the current OpenClaw 2026.9.6 target:
+
+- Node.js `24.16.0+` on the Node 24 line (CI uses `24.19.0`)
+- npm `11.6.0` for reproducible CI dependency resolution
+
 ```bash
 git clone https://github.com/danceoflogic/openclaw-deterministic-router.git
 cd openclaw-deterministic-router
