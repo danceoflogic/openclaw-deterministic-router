@@ -34,7 +34,23 @@ describe("deterministic classifier acceptance matrix", () => {
       expect(classification.tier, fixture.id).toBe(fixture.expectedClassifierTier);
       expect(decision.classifierTier, fixture.id).toBe(fixture.expectedClassifierTier);
       expect(decision.effectiveTier, fixture.id).toBe(fixture.expectedEffectiveTier);
+      expect(decision.target, fixture.id).toEqual(DEFAULT_PLUGIN_CONFIG.models[decision.effectiveTier]);
     }
+  });
+
+  it("uses a configured non-default fallback for ambiguous classifier results", () => {
+    const ambiguousFixture = fixtures.find((fixture) => fixture.expectedClassifierTier === null);
+    if (!ambiguousFixture) throw new Error("acceptance fixtures must include an ambiguous classifier result");
+
+    const config = { ...DEFAULT_PLUGIN_CONFIG, ambiguousTier: "SIMPLE" as const };
+    const decision = routeWork(
+      { prompt: promptFor(ambiguousFixture), attachmentCount: ambiguousFixture.attachmentCount },
+      config,
+    );
+
+    expect(decision.classifierTier).toBeNull();
+    expect(decision.effectiveTier).toBe(config.ambiguousTier);
+    expect(decision.target).toEqual(config.models[decision.effectiveTier]);
   });
 
   it("returns byte-for-byte identical classification fields for repeated identical input", () => {
