@@ -1,0 +1,96 @@
+{
+  "id": "deterministic-router",
+  "name": "Deterministic Router",
+  "description": "Local, auditable model routing for OpenClaw with shadow-first rollout.",
+  "activation": {
+    "onStartup": false,
+    "onCapabilities": [
+      "hook"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "mode": {
+        "type": "string",
+        "enum": [
+          "off",
+          "shadow",
+          "auto"
+        ],
+        "default": "shadow",
+        "description": "off disables routing; shadow logs decisions without overriding; auto applies overrides."
+      },
+      "ambiguousTier": {
+        "type": "string",
+        "enum": [
+          "SIMPLE",
+          "MEDIUM",
+          "COMPLEX",
+          "REASONING"
+        ],
+        "default": "COMPLEX"
+      },
+      "protectManualSelection": {
+        "type": "boolean",
+        "default": true
+      },
+      "requireSessionKeyForAuto": {
+        "type": "boolean",
+        "default": true
+      },
+      "minAttachmentTier": {
+        "type": "string",
+        "enum": [
+          "SIMPLE",
+          "MEDIUM",
+          "COMPLEX",
+          "REASONING"
+        ],
+        "default": "MEDIUM"
+      },
+      "models": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "SIMPLE": {
+            "$ref": "#/$defs/modelTarget"
+          },
+          "MEDIUM": {
+            "$ref": "#/$defs/modelTarget"
+          },
+          "COMPLEX": {
+            "$ref": "#/$defs/modelTarget"
+          },
+          "REASONING": {
+            "$ref": "#/$defs/modelTarget"
+          }
+        }
+      }
+    },
+    "$defs": {
+      "modelTarget": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "model"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "categories": [
+    "developer-tools"
+  ]
+}
