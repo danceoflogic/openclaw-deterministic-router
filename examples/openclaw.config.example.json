@@ -1,0 +1,37 @@
+{
+  "plugins": {
+    "entries": {
+      "deterministic-router": {
+        "enabled": true,
+        "hooks": {
+          "allowConversationAccess": true
+        },
+        "config": {
+          "mode": "shadow",
+          "ambiguousTier": "COMPLEX",
+          "protectManualSelection": true,
+          "requireSessionKeyForAuto": true,
+          "minAttachmentTier": "MEDIUM",
+          "models": {
+            "SIMPLE": {
+              "provider": "telnyx",
+              "model": "MiniMaxAI/MiniMax-M3-MXFP8"
+            },
+            "MEDIUM": {
+              "provider": "openai",
+              "model": "gpt-5.6-luna"
+            },
+            "COMPLEX": {
+              "provider": "openai",
+              "model": "gpt-5.6-terra"
+            },
+            "REASONING": {
+              "provider": "openai",
+              "model": "gpt-5.6-sol"
+            }
+          }
+        }
+      }
+    }
+  }
+}
