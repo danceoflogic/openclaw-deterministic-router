@@ -40,13 +40,22 @@ export default definePluginEntry({
     const locks = new SessionLockRegistry();
 
     // Internal colon-style event. Kept separate from typed api.on hooks.
-    api.registerHook("session:patch", (event: unknown) => {
-      const { sessionKey, patch, sessionEntry } = getSessionPatchEvent(event);
-      const action = applySessionPatch(locks, sessionKey, patch, sessionEntry);
-      if (action !== "ignored") {
-        api.logger?.debug?.(`[deterministic-router] manual-lock ${action} session=${sessionKey ?? "unknown"}`);
-      }
-    });
+    api.registerHook(
+      "session:patch",
+      (event: unknown) => {
+        const { sessionKey, patch, sessionEntry } = getSessionPatchEvent(event);
+        const action = applySessionPatch(locks, sessionKey, patch, sessionEntry);
+        if (action !== "ignored") {
+          api.logger?.debug?.(
+            `[deterministic-router] manual-lock ${action} session=${sessionKey ?? "unknown"}`,
+          );
+        }
+      },
+      {
+        name: "deterministic-router-session-patch",
+        description: "Tracks manual session model selections for deterministic routing.",
+      },
+    );
 
     api.on("before_model_resolve", (event, ctx) => {
       const config = parsePluginConfig(api.pluginConfig);
