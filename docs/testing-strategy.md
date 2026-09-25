@@ -19,7 +19,9 @@ A Router Core upgrade must be deliberate. Update the pinned commit, rerun the fi
 
 ## OpenClaw integration tests
 
-The runtime tests are intentionally separate from unit tests because hook boundaries are host-version dependent.
+The current integration target is **OpenClaw 2026.9.6**. The runtime tests are intentionally separate from unit tests because hook boundaries are host-version dependent.
+
+Before the scenarios below, record `openclaw --version` and fail the current compatibility run if the target is not `2026.9.6` unless a deliberate compatibility-validation branch is being used.
 
 Minimum scenarios:
 
