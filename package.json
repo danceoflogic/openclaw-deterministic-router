@@ -58,7 +58,7 @@
   },
   "homepage": "https://github.com/danceoflogic/openclaw-deterministic-router#readme",
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=24.16.0 <25 || >=26.1.0"
   },
   "peerDependencies": {
     "openclaw": ">=2026.9.6 <2027"
@@ -74,5 +74,6 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "packageManager": "npm@11.6.0"
 }
