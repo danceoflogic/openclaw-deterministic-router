@@ -75,7 +75,8 @@ jobs:
             "deterministic-router-session-patch",
             "before_model_resolve",
             "model_call_started",
-            "model_call_ended"
+            "model_call_ended",
+            "agent_end"
           ]) {
             if (!serialized.includes(required)) {
               throw new Error(`runtime inspection missing registered hook: ${required}`);

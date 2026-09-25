@@ -59,6 +59,42 @@ export type CorrelatedModelCall = {
   ended?: ModelCallTelemetryRecord;
 };
 
+type SelectedDecision = Pick<
+  AuditRecord,
+  "decisionId" | "mode" | "selectedProvider" | "selectedModel"
+>;
+
+type ActiveCall = CorrelatedModelCall & {
+  selected?: SelectedDecision;
+};
+
+type RunCorrelation = {
+  decision?: SelectedDecision;
+  calls: Map<string, ActiveCall>;
+  lastTouched: number;
+  sequence: number;
+  /** Set once OpenClaw reports that this run has ended. */
+  terminalAt?: number;
+};
+
+export type ModelCallCorrelationRegistryOptions = {
+  /** Injectable clock so stale-entry cleanup is deterministic in tests. */
+  now?: () => number;
+  /** Maximum completed/inactive runs retained as a backstop for missing lifecycle events. */
+  maxInactiveRuns?: number;
+  /** Age after which an inactive run is discarded as a backstop for missing lifecycle events. */
+  staleRunMs?: number;
+  /** How long to retain a terminal run marker to reject late lifecycle events. */
+  terminalGraceMs?: number;
+  /** Maximum drained terminal run markers retained during their grace period. */
+  maxTerminalRuns?: number;
+};
+
+const DEFAULT_MAX_INACTIVE_RUNS = 1024;
+const DEFAULT_STALE_RUN_MS = 60 * 60 * 1000;
+const DEFAULT_TERMINAL_GRACE_MS = 5 * 60 * 1000;
+const DEFAULT_MAX_TERMINAL_RUNS = 1024;
+
 function shortHash(value: string): string {
   return createHash("sha256").update(value).digest("hex").slice(0, 16);
 }
@@ -97,51 +133,169 @@ export function makeAuditRecord(params: {
  * runId. Each callId is retained independently so retries are never collapsed.
  */
 export class ModelCallCorrelationRegistry {
-  private readonly decisionsByRun = new Map<string, AuditRecord[]>();
-  private readonly callsByRun = new Map<string, Map<string, CorrelatedModelCall>>();
+  private readonly runs = new Map<string, RunCorrelation>();
+  private readonly now: () => number;
+  private readonly maxInactiveRuns: number;
+  private readonly staleRunMs: number;
+  private readonly terminalGraceMs: number;
+  private readonly maxTerminalRuns: number;
+  private sequence = 0;
+
+  constructor(options: ModelCallCorrelationRegistryOptions = {}) {
+    this.now = options.now ?? Date.now;
+    this.maxInactiveRuns = options.maxInactiveRuns ?? DEFAULT_MAX_INACTIVE_RUNS;
+    this.staleRunMs = options.staleRunMs ?? DEFAULT_STALE_RUN_MS;
+    this.terminalGraceMs = options.terminalGraceMs ?? DEFAULT_TERMINAL_GRACE_MS;
+    this.maxTerminalRuns = options.maxTerminalRuns ?? DEFAULT_MAX_TERMINAL_RUNS;
+  }
 
   recordDecision(decision: AuditRecord): void {
     if (!decision.runId) return;
-    const decisions = this.decisionsByRun.get(decision.runId) ?? [];
-    decisions.push(decision);
-    this.decisionsByRun.set(decision.runId, decisions);
+    const existing = this.runs.get(decision.runId);
+    // A terminal marker must never be revived by delayed routing events.
+    if (existing?.terminalAt !== undefined) {
+      this.pruneInactiveRuns();
+      return;
+    }
+    const run = existing ?? this.getOrCreateRun(decision.runId);
+    run.decision = this.snapshotDecision(decision);
+    this.touch(run);
+    this.pruneInactiveRuns();
   }
 
   recordCallStarted(event: ModelCallEvent): ModelCallTelemetryRecord {
-    const record = this.makeRecord(event, "model_call_started");
-    const call = this.getOrCreateCall(event.runId, event.callId);
-    call.started = record;
+    const existing = this.runs.get(event.runId);
+    // Keep a terminal run terminal. A late start cannot create an unbounded
+    // active entry after OpenClaw has authoritatively completed the run.
+    if (existing?.terminalAt !== undefined) {
+      this.pruneInactiveRuns();
+      return this.makeRecord(event, "model_call_started");
+    }
+    const run = existing ?? this.getOrCreateRun(event.runId);
+    const call = run.calls.get(event.callId) ?? {
+      runId: event.runId,
+      callId: event.callId,
+      // Bind the decision at the first start event. Do not let duplicate starts
+      // or later decisions change this call's routing attribution.
+      selected: run.decision,
+    };
+    run.calls.set(event.callId, call);
+    this.touch(run);
+
+    const record = this.makeRecord(event, "model_call_started", call.selected);
+    call.started ??= record;
+    this.pruneInactiveRuns();
     return record;
   }
 
   recordCallEnded(event: ModelCallEndedEvent): ModelCallTelemetryRecord {
-    const record = this.makeRecord(event, "model_call_ended", event);
-    const call = this.getOrCreateCall(event.runId, event.callId);
-    call.ended = record;
+    const run = this.runs.get(event.runId);
+    const call = run?.calls.get(event.callId);
+    // An end without a matching start is intentionally uncorrelated: looking
+    // up the latest run decision here could assign it to a newer call.
+    const record = this.makeRecord(event, "model_call_ended", call?.selected, event);
+    if (run && call) {
+      call.ended = record;
+      run.calls.delete(event.callId);
+      this.touch(run);
+    }
+    this.pruneInactiveRuns();
     return record;
   }
 
   callsForRun(runId: string): CorrelatedModelCall[] {
-    return [...(this.callsByRun.get(runId)?.values() ?? [])];
+    return [...(this.runs.get(runId)?.calls.values() ?? [])].map(({ selected: _selected, ...call }) => call);
   }
 
-  private getOrCreateCall(runId: string, callId: string): CorrelatedModelCall {
-    const calls = this.callsByRun.get(runId) ?? new Map<string, CorrelatedModelCall>();
-    const call = calls.get(callId) ?? { runId, callId };
-    calls.set(callId, call);
-    this.callsByRun.set(runId, calls);
-    return call;
+  /**
+   * Marks a run terminal when OpenClaw authoritatively ends it. Active calls
+   * are deliberately retained: their queued end events still need the snapshot
+   * captured at start. Once drained, a bounded terminal marker rejects late
+   * events before deterministic grace/capacity cleanup removes it.
+   */
+  completeRun(runId: string | undefined): void {
+    if (typeof runId !== "string" || runId.length === 0) return;
+    const run = this.runs.get(runId) ?? this.getOrCreateRun(runId);
+    run.terminalAt ??= this.now();
+    this.touch(run);
+    this.pruneInactiveRuns();
+  }
+
+  private getOrCreateRun(runId: string): RunCorrelation {
+    const existing = this.runs.get(runId);
+    if (existing) return existing;
+
+    const run: RunCorrelation = {
+      calls: new Map(),
+      lastTouched: this.now(),
+      sequence: ++this.sequence,
+    };
+    this.runs.set(runId, run);
+    return run;
+  }
+
+  private touch(run: RunCorrelation): void {
+    run.lastTouched = this.now();
+    run.sequence = ++this.sequence;
+  }
+
+  private snapshotDecision(decision: AuditRecord): SelectedDecision {
+    return {
+      decisionId: decision.decisionId,
+      mode: decision.mode,
+      selectedProvider: decision.selectedProvider,
+      selectedModel: decision.selectedModel,
+    };
+  }
+
+  private pruneInactiveRuns(): void {
+    const now = this.now();
+    const inactive: Array<[string, RunCorrelation]> = [];
+    const terminal: Array<[string, RunCorrelation]> = [];
+
+    for (const entry of this.runs) {
+      const [runId, run] = entry;
+      if (run.calls.size > 0) continue;
+      if (run.terminalAt !== undefined) {
+        if (now - run.terminalAt >= this.terminalGraceMs) {
+          this.runs.delete(runId);
+        } else {
+          terminal.push(entry);
+        }
+        continue;
+      }
+      if (now - run.lastTouched >= this.staleRunMs) {
+        this.runs.delete(runId);
+      } else {
+        inactive.push(entry);
+      }
+    }
+
+    this.pruneByCapacity(terminal, this.maxTerminalRuns);
+    this.pruneByCapacity(inactive, this.maxInactiveRuns);
+  }
+
+  private pruneByCapacity(
+    runs: Array<[string, RunCorrelation]>,
+    maximum: number,
+  ): void {
+    if (runs.length <= maximum) return;
+    runs.sort(([, left], [, right]) =>
+      left.lastTouched - right.lastTouched || left.sequence - right.sequence,
+    );
+    for (const [runId] of runs.slice(0, runs.length - maximum)) {
+      this.runs.delete(runId);
+    }
   }
 
   private makeRecord(
     event: ModelCallEvent,
     kind: ModelCallTelemetryRecord["kind"],
+    selected?: SelectedDecision,
     ended?: ModelCallEndedEvent,
   ): ModelCallTelemetryRecord {
-    const selected = this.decisionsByRun.get(event.runId)?.at(-1);
-
     return {
-      timestamp: new Date().toISOString(),
+      timestamp: new Date(this.now()).toISOString(),
       kind,
       runId: event.runId,
       callId: event.callId,

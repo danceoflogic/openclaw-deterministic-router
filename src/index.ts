@@ -115,6 +115,15 @@ export default definePluginEntry({
       const telemetry = calls.recordCallEnded(event);
       api.logger?.info?.(`[deterministic-router] ${JSON.stringify(telemetry)}`);
     });
+
+    // OpenClaw emits this as the final event for a run. It is the authoritative
+    // cleanup point; the registry also has a bounded stale/inactive backstop.
+    api.on("agent_end", (event, ctx) => {
+      const runId = typeof event.runId === "string" && event.runId.length > 0
+        ? event.runId
+        : ctx.runId;
+      calls.completeRun(runId);
+    });
   },
 });
 

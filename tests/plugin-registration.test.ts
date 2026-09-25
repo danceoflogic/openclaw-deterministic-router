@@ -7,7 +7,7 @@ type InternalHookOptions = {
 };
 
 describe("plugin registration contract", () => {
-  it("registers the internal session patch hook and typed model-call observers", () => {
+  it("registers the internal session patch hook and typed telemetry observers", () => {
     const registerHook = vi.fn(
       (
         events: string | string[],
@@ -54,5 +54,6 @@ describe("plugin registration contract", () => {
     expect(on).toHaveBeenCalledWith("before_model_resolve", expect.any(Function));
     expect(on).toHaveBeenCalledWith("model_call_started", expect.any(Function));
     expect(on).toHaveBeenCalledWith("model_call_ended", expect.any(Function));
+    expect(on).toHaveBeenCalledWith("agent_end", expect.any(Function));
   });
 });
