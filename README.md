@@ -166,7 +166,7 @@ The implementation plan explicitly tests this before production `auto` mode.
 6. Run shadow mode against representative real workloads.
 7. Enable controlled `auto` mode only after the gates pass.
 
-See [`docs/implementation-plan.md`](docs/implementation-plan.md).
+See [`docs/implementation-plan.md`](docs/implementation-plan.md) and the executable [`router acceptance test protocol`](docs/acceptance-test-protocol.md).
 
 ## Security
 
