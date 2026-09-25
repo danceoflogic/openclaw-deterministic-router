@@ -7,7 +7,7 @@ type InternalHookOptions = {
 };
 
 describe("plugin registration contract", () => {
-  it("registers the internal session patch hook with a stable name and keeps before_model_resolve", () => {
+  it("registers the internal session patch hook and typed model-call observers", () => {
     const registerHook = vi.fn(
       (
         events: string | string[],
@@ -52,5 +52,7 @@ describe("plugin registration contract", () => {
     expect(options?.name?.trim()).toBe("deterministic-router-session-patch");
 
     expect(on).toHaveBeenCalledWith("before_model_resolve", expect.any(Function));
+    expect(on).toHaveBeenCalledWith("model_call_started", expect.any(Function));
+    expect(on).toHaveBeenCalledWith("model_call_ended", expect.any(Function));
   });
 });

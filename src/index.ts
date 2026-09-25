@@ -2,7 +2,7 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { parsePluginConfig } from "./config.js";
 import { routeWork } from "./route-work.js";
 import { applySessionPatch, SessionLockRegistry } from "./session-lock.js";
-import { makeAuditRecord } from "./telemetry.js";
+import { makeAuditRecord, ModelCallCorrelationRegistry } from "./telemetry.js";
 
 function attachmentCount(event: unknown): number {
   if (typeof event !== "object" || event === null) return 0;
@@ -38,6 +38,7 @@ export default definePluginEntry({
   description: "Local, auditable model routing for OpenClaw.",
   register(api) {
     const locks = new SessionLockRegistry();
+    const calls = new ModelCallCorrelationRegistry();
 
     // Internal colon-style event. Kept separate from typed api.on hooks.
     api.registerHook(
@@ -47,7 +48,7 @@ export default definePluginEntry({
         const action = applySessionPatch(locks, sessionKey, patch, sessionEntry);
         if (action !== "ignored") {
           api.logger?.debug?.(
-            `[deterministic-router] manual-lock ${action} session=${sessionKey ?? "unknown"}`,
+            `[deterministic-router] manual-lock ${action}`,
           );
         }
       },
@@ -94,6 +95,7 @@ export default definePluginEntry({
         reason,
       });
 
+      calls.recordDecision(audit);
       api.logger?.info?.(`[deterministic-router] ${JSON.stringify(audit)}`);
 
       if (!applied) return;
@@ -102,6 +104,16 @@ export default definePluginEntry({
         providerOverride: decision.target.provider,
         modelOverride: decision.target.model,
       };
+    });
+
+    api.on("model_call_started", (event) => {
+      const telemetry = calls.recordCallStarted(event);
+      api.logger?.info?.(`[deterministic-router] ${JSON.stringify(telemetry)}`);
+    });
+
+    api.on("model_call_ended", (event) => {
+      const telemetry = calls.recordCallEnded(event);
+      api.logger?.info?.(`[deterministic-router] ${JSON.stringify(telemetry)}`);
     });
   },
 });
