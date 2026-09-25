@@ -1,0 +1,41 @@
+name: Bug report
+description: Report a reproducible routing or integration problem
+title: "bug: "
+labels: [bug]
+body:
+  - type: input
+    id: openclaw-version
+    attributes:
+      label: OpenClaw version
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Router mode
+      options: [off, shadow, auto]
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      description: Remove prompts, credentials, session keys and other sensitive data.
