@@ -1,0 +1,19 @@
+[
+  {
+    "id": "simple-greeting",
+    "prompt": "Hello"
+  },
+  {
+    "id": "routine-summary",
+    "prompt": "Summarise this note into three concise bullets."
+  },
+  {
+    "id": "technical-debug",
+    "prompt": "Debug this distributed database architecture and identify the failure modes."
+  },
+  {
+    "id": "reasoning-proof",
+    "prompt": "Prove this theorem formally, step by step, and derive the result.",
+    "expectedTier": "REASONING"
+  }
+]
