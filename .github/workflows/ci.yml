@@ -21,3 +21,62 @@ jobs:
       - run: npm --version
       - run: npm install --no-audit --no-fund
       - run: npm run check
+      - name: Smoke test OpenClaw 2026.9.6 runtime loader
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          state_dir="$(mktemp -d)"
+          config_path="$(mktemp)"
+          inspect_json="$(mktemp)"
+          trap 'rm -rf "$state_dir" "$config_path" "$inspect_json"' EXIT
+
+          node --input-type=module - "$config_path" "$GITHUB_WORKSPACE" <<'NODE'
+          import fs from "node:fs";
+
+          const [configPath, pluginPath] = process.argv.slice(2);
+          fs.writeFileSync(
+            configPath,
+            JSON.stringify(
+              {
+                plugins: {
+                  load: { paths: [pluginPath] },
+                  entries: {
+                    "deterministic-router": {
+                      enabled: true,
+                      hooks: {
+                        allowConversationAccess: true
+                      },
+                      config: {
+                        mode: "shadow"
+                      }
+                    }
+                  }
+                }
+              },
+              null,
+              2
+            ) + "\n"
+          );
+          NODE
+
+          OPENCLAW_STATE_DIR="$state_dir" \
+          OPENCLAW_CONFIG_PATH="$config_path" \
+          ./node_modules/.bin/openclaw plugins inspect deterministic-router --runtime --json > "$inspect_json"
+
+          node --input-type=module - "$inspect_json" <<'NODE'
+          import fs from "node:fs";
+
+          const [inspectPath] = process.argv.slice(2);
+          const report = JSON.parse(fs.readFileSync(inspectPath, "utf8"));
+          const serialized = JSON.stringify(report);
+
+          for (const required of [
+            "deterministic-router-session-patch",
+            "before_model_resolve"
+          ]) {
+            if (!serialized.includes(required)) {
+              throw new Error(`runtime inspection missing registered hook: ${required}`);
+            }
+          }
+          NODE
