@@ -14,4 +14,14 @@ describe("deterministic policy", () => {
   it("never demotes a stronger classifier tier", () => {
     expect(resolveTier("REASONING", 1, DEFAULT_PLUGIN_CONFIG)).toBe("REASONING");
   });
+
+  it("keeps shadow mode and maps every effective tier independently", () => {
+    expect(DEFAULT_PLUGIN_CONFIG.mode).toBe("shadow");
+    expect(DEFAULT_PLUGIN_CONFIG.models).toEqual({
+      SIMPLE: { provider: "telnyx", model: "MiniMaxAI/MiniMax-M3-MXFP8" },
+      MEDIUM: { provider: "openai", model: "gpt-5.6-luna" },
+      COMPLEX: { provider: "openai", model: "gpt-5.6-terra" },
+      REASONING: { provider: "openai", model: "gpt-5.6-sol" },
+    });
+  });
 });
