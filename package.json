@@ -1,0 +1,78 @@
+{
+  "name": "@danceoflogic/openclaw-deterministic-router",
+  "version": "0.1.0",
+  "description": "Deterministic, local model routing for OpenClaw with auditable per-turn policy and shadow-first rollout.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "openclaw.plugin.json",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ],
+    "compat": {
+      "pluginApi": ">=2026.9.1-beta.1 <2027",
+      "minGatewayVersion": "2026.9.1-beta.1"
+    },
+    "build": {
+      "openclawVersion": "2026.9.1-beta.1",
+      "pluginSdkVersion": "2026.9.1-beta.1"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "keywords": [
+    "openclaw",
+    "llm",
+    "model-routing",
+    "deterministic-routing",
+    "ai-agents",
+    "cost-optimization",
+    "router"
+  ],
+  "author": "Chris Davison",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danceoflogic/openclaw-deterministic-router.git"
+  },
+  "bugs": {
+    "url": "https://github.com/danceoflogic/openclaw-deterministic-router/issues"
+  },
+  "homepage": "https://github.com/danceoflogic/openclaw-deterministic-router#readme",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.9.1-beta.1 <2027"
+  },
+  "dependencies": {
+    "@blockrun/router-core": "github:BlockRunAI/router-core#5ee7c23c993013a8052588191569db5cf7fb793c"
+  },
+  "devDependencies": {
+    "openclaw": "2026.9.1-beta.1",
+    "tsup": "^8.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
