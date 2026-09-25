@@ -189,7 +189,7 @@ describe("model-call telemetry correlation", () => {
     expect(activeRestarted.decisionId).toBeUndefined();
   });
 
-  it("retains active snapshots through agent completion and evicts the drained terminal run", () => {
+  it("retains active snapshots through terminal grace so a delayed end remains correlated", () => {
     let clock = 0;
     const registry = new ModelCallCorrelationRegistry({
       now: () => clock,
@@ -206,6 +206,8 @@ describe("model-call telemetry correlation", () => {
 
     // OpenClaw can publish agent_end before its queued model-call end event.
     registry.completeRun("run-1");
+    clock = 99;
+    registry.recordDecision(auditFor("cleanup-trigger", "trigger", "p", "m"));
     const ended = registry.recordCallEnded({
       runId: "run-1",
       callId: "call-1",
@@ -228,7 +230,7 @@ describe("model-call telemetry correlation", () => {
     expect(lateStarted.decisionId).toBeUndefined();
 
     clock = 100;
-    registry.recordDecision(auditFor("cleanup-trigger", "trigger", "p", "m"));
+    registry.recordDecision(auditFor("after-grace-trigger", "trigger", "p", "m"));
     const afterEviction = registry.recordCallStarted({
       runId: "run-1",
       callId: "after-eviction",
@@ -239,5 +241,68 @@ describe("model-call telemetry correlation", () => {
     expect(registry.callsForRun("run-1")).toEqual([
       { runId: "run-1", callId: "after-eviction", started: afterEviction },
     ]);
+  });
+
+  it("evicts a terminal run with an orphaned call after terminal grace", () => {
+    let clock = 0;
+    const registry = new ModelCallCorrelationRegistry({
+      now: () => clock,
+      terminalGraceMs: 100,
+      // Capacity must not evict a terminal run with a queued end before grace.
+      maxTerminalRuns: 0,
+    });
+    registry.recordDecision(auditFor("orphaned-terminal", "decision-a", "provider-a", "model-a"));
+    const started = registry.recordCallStarted({
+      runId: "orphaned-terminal",
+      callId: "lost-end",
+      provider: "effective-a",
+      model: "effective-model-a",
+    });
+    registry.completeRun("orphaned-terminal");
+
+    clock = 99;
+    registry.recordDecision(auditFor("before-grace", "trigger", "p", "m"));
+    expect(registry.callsForRun("orphaned-terminal")).toEqual([
+      { runId: "orphaned-terminal", callId: "lost-end", started },
+    ]);
+
+    clock = 100;
+    registry.recordDecision(auditFor("after-grace", "trigger", "p", "m"));
+    expect(registry.callsForRun("orphaned-terminal")).toEqual([]);
+    const lateStarted = registry.recordCallStarted({
+      runId: "orphaned-terminal",
+      callId: "after-eviction",
+      provider: "effective-a",
+      model: "effective-model-a",
+    });
+    expect(lateStarted.decisionId).toBeUndefined();
+  });
+
+  it("expires a non-terminal orphaned call and its stale run after the explicit backstop", () => {
+    let clock = 0;
+    const registry = new ModelCallCorrelationRegistry({
+      now: () => clock,
+      activeCallMaxAgeMs: 100,
+      staleRunMs: 100,
+    });
+    registry.recordDecision(auditFor("orphaned-active", "decision-a", "provider-a", "model-a"));
+    registry.recordCallStarted({
+      runId: "orphaned-active",
+      callId: "lost-end-and-lifecycle",
+      provider: "effective-a",
+      model: "effective-model-a",
+    });
+
+    clock = 100;
+    registry.recordDecision(auditFor("cleanup-trigger", "trigger", "p", "m"));
+
+    expect(registry.callsForRun("orphaned-active")).toEqual([]);
+    const afterEviction = registry.recordCallStarted({
+      runId: "orphaned-active",
+      callId: "after-eviction",
+      provider: "effective-a",
+      model: "effective-model-a",
+    });
+    expect(afterEviction.decisionId).toBeUndefined();
   });
 });

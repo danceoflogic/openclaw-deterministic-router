@@ -66,6 +66,12 @@ type SelectedDecision = Pick<
 
 type ActiveCall = CorrelatedModelCall & {
   selected?: SelectedDecision;
+  /**
+   * The only non-lifecycle backstop for an end event that was never
+   * delivered. This deliberately does not move when a run receives a later
+   * decision, so unrelated activity cannot keep an orphan alive forever.
+   */
+  startedAt: number;
 };
 
 type RunCorrelation = {
@@ -88,12 +94,19 @@ export type ModelCallCorrelationRegistryOptions = {
   terminalGraceMs?: number;
   /** Maximum drained terminal run markers retained during their grace period. */
   maxTerminalRuns?: number;
+  /**
+   * Final retention bound for an outstanding call when both its end event and
+   * the run lifecycle event are lost. Ordinary calls remain protected until
+   * this deliberately long timeout expires.
+   */
+  activeCallMaxAgeMs?: number;
 };
 
 const DEFAULT_MAX_INACTIVE_RUNS = 1024;
 const DEFAULT_STALE_RUN_MS = 60 * 60 * 1000;
 const DEFAULT_TERMINAL_GRACE_MS = 5 * 60 * 1000;
 const DEFAULT_MAX_TERMINAL_RUNS = 1024;
+const DEFAULT_ACTIVE_CALL_MAX_AGE_MS = 60 * 60 * 1000;
 
 function shortHash(value: string): string {
   return createHash("sha256").update(value).digest("hex").slice(0, 16);
@@ -139,6 +152,7 @@ export class ModelCallCorrelationRegistry {
   private readonly staleRunMs: number;
   private readonly terminalGraceMs: number;
   private readonly maxTerminalRuns: number;
+  private readonly activeCallMaxAgeMs: number;
   private sequence = 0;
 
   constructor(options: ModelCallCorrelationRegistryOptions = {}) {
@@ -147,6 +161,7 @@ export class ModelCallCorrelationRegistry {
     this.staleRunMs = options.staleRunMs ?? DEFAULT_STALE_RUN_MS;
     this.terminalGraceMs = options.terminalGraceMs ?? DEFAULT_TERMINAL_GRACE_MS;
     this.maxTerminalRuns = options.maxTerminalRuns ?? DEFAULT_MAX_TERMINAL_RUNS;
+    this.activeCallMaxAgeMs = options.activeCallMaxAgeMs ?? DEFAULT_ACTIVE_CALL_MAX_AGE_MS;
   }
 
   recordDecision(decision: AuditRecord): void {
@@ -178,6 +193,7 @@ export class ModelCallCorrelationRegistry {
       // Bind the decision at the first start event. Do not let duplicate starts
       // or later decisions change this call's routing attribution.
       selected: run.decision,
+      startedAt: this.now(),
     };
     run.calls.set(event.callId, call);
     this.touch(run);
@@ -204,14 +220,16 @@ export class ModelCallCorrelationRegistry {
   }
 
   callsForRun(runId: string): CorrelatedModelCall[] {
-    return [...(this.runs.get(runId)?.calls.values() ?? [])].map(({ selected: _selected, ...call }) => call);
+    return [...(this.runs.get(runId)?.calls.values() ?? [])].map(
+      ({ selected: _selected, startedAt: _startedAt, ...call }) => call,
+    );
   }
 
   /**
    * Marks a run terminal when OpenClaw authoritatively ends it. Active calls
-   * are deliberately retained: their queued end events still need the snapshot
-   * captured at start. Once drained, a bounded terminal marker rejects late
-   * events before deterministic grace/capacity cleanup removes it.
+   * are deliberately retained during the terminal grace period: their queued
+   * end events still need the snapshot captured at start. Once that finite
+   * period expires, even a missing end event cannot retain the run forever.
    */
   completeRun(runId: string | undefined): void {
     if (typeof runId !== "string" || runId.length === 0) return;
@@ -255,15 +273,19 @@ export class ModelCallCorrelationRegistry {
 
     for (const entry of this.runs) {
       const [runId, run] = entry;
-      if (run.calls.size > 0) continue;
       if (run.terminalAt !== undefined) {
         if (now - run.terminalAt >= this.terminalGraceMs) {
           this.runs.delete(runId);
-        } else {
+        } else if (run.calls.size === 0) {
+          // Capacity applies only to drained terminal markers. A terminal run
+          // with a queued end still needs its call snapshot for the full
+          // grace period; it is nevertheless time-bounded above.
           terminal.push(entry);
         }
         continue;
       }
+      this.pruneExpiredCalls(run, now);
+      if (run.calls.size > 0) continue;
       if (now - run.lastTouched >= this.staleRunMs) {
         this.runs.delete(runId);
       } else {
@@ -273,6 +295,14 @@ export class ModelCallCorrelationRegistry {
 
     this.pruneByCapacity(terminal, this.maxTerminalRuns);
     this.pruneByCapacity(inactive, this.maxInactiveRuns);
+  }
+
+  private pruneExpiredCalls(run: RunCorrelation, now: number): void {
+    for (const [callId, call] of run.calls) {
+      if (now - call.startedAt >= this.activeCallMaxAgeMs) {
+        run.calls.delete(callId);
+      }
+    }
   }
 
   private pruneByCapacity(
