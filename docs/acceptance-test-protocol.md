@@ -44,9 +44,11 @@ Do not enable AUTO until both pass.
 
 ### Actual model telemetry
 
-Use OpenClaw 2026.9.6 `model_call_started` and `model_call_ended` typed hooks to capture sanitized effective provider/model metadata.
+For the embedded model-call path, use OpenClaw 2026.9.6 `model_call_started` and `model_call_ended` typed hooks to capture sanitized effective provider/model metadata. These hooks are **not documented for native Codex**. `agent_end` only marks run completion; a Codex adapter's resolved model or `llm_input` / `llm_output` observation does not independently prove the provider/model actually called. See [effective-model observability](model-observability.md).
 
 Correlate router decisions and model calls with `runId`; preserve multiple `callId` values when a run contains retries or multiple calls.
+
+Gate B remains open for Codex-backed routes until a supported, call-level observation is demonstrated and tested. A loader smoke test showing hook registration is not live effective-model evidence.
 
 The critical invariant is:
 
