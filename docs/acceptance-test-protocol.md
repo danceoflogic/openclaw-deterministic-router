@@ -44,17 +44,21 @@ Do not enable AUTO until both pass.
 
 ### Actual model telemetry
 
-Use OpenClaw 2026.9.6 `model_call_started` and `model_call_ended` typed hooks to capture sanitized effective provider/model metadata.
+For the embedded model-call path, use OpenClaw 2026.9.6 `model_call_started` and `model_call_ended` typed hooks to capture sanitized effective provider/model metadata at `verificationLevel: "provider-call"`. These hooks are **not emitted by native Codex**. Native Codex's installed bundle also exposes trusted `model.call.*` diagnostics, but they are explicitly `observationUnit: "turn"`; record them as turn-scoped `model_identity_observed` telemetry at `verificationLevel: "runtime-model"`, not provider-call evidence. Native `agent_end` context is a weaker run-scoped runtime-model signal. `agent_end`, `llm_input` / `llm_output`, or a turn diagnostic does not independently prove the provider/model used for every hidden request, retry, or fallback. See [effective-model observability](model-observability.md).
 
 Correlate router decisions and model calls with `runId`; preserve multiple `callId` values when a run contains retries or multiple calls.
 
-The critical invariant is:
+Issue #2 does not require native Codex provider-call telemetry that the runtime does not expose. Its native acceptance criterion is the tested, explicitly labelled `runtime-model` observation and documentation of the turn/run limitation. The loader smoke test proves registration; it does not upgrade runtime-model evidence to provider-call evidence. The overall Gate B remains subject to Issue #3 and its separate manual-selection safety checks, and this protocol does not authorize enabling AUTO.
+
+For an embedded provider-call observation, the critical invariant is:
 
 ```text
 router selected provider/model == OpenClaw effective provider/model
 ```
 
-for an AUTO-applied decision, unless OpenClaw explicitly reports a documented fallback that the test is designed to exercise.
+for an AUTO-applied decision, unless OpenClaw explicitly reports a documented fallback that the test is designed to exercise. For native `runtime-model` observations, compare selected and resolved fields at the guaranteed run/turn scope and do not infer per-hidden-request equality.
+
+For a controlled acceptance run, OpenAI model-usage data may be compared by time window and model as an aggregate sanity check. It is not exact per-`runId` correlation; see [effective-model observability](model-observability.md).
 
 ### Manual selection
 

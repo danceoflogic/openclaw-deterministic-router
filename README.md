@@ -143,12 +143,15 @@ Each decision is logged as one JSON object containing fields such as:
   "confidence": 0.81,
   "selectedProvider": "openai",
   "selectedModel": "gpt-5.6-luna",
+  "verificationLevel": "selected-only",
   "manualLock": false,
   "applied": false
 }
 ```
 
 Raw prompts are not written to the audit record. Session keys are hashed before logging.
+
+On the embedded model-call path, the router also records sanitized `model_call_started` / `model_call_ended` events with `verificationLevel: "provider-call"`, the selected target, and the effective provider/model per call. Native Codex may additionally expose trusted `model.call.*` diagnostics, but OpenClaw marks them `observationUnit: "turn"`; the router records those with `verificationLevel: "runtime-model"`, `resolved*` fields, and synthetic turn `callId` semantics. Native run/turn observations do not verify provider calls per hidden request, retry, or fallback; that limitation is documented and is not misrepresented as provider-call evidence. See [effective-model observability](docs/model-observability.md) for the runtime-specific guarantee and the aggregate usage cross-check protocol.
 
 ## Important OpenClaw integration boundary
 
