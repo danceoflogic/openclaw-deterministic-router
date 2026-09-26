@@ -1,4 +1,19 @@
-# Issue #2 progress
+# Current issue: #3 — manual model lock across restart and pre-existing session state
+
+## Status
+
+- Issue #2 is complete and PR #15 has been merged to `main`.
+- Current active work item: [Issue #3 — Verify and harden manual model lock across restart and pre-existing session state](https://github.com/danceoflogic/openclaw-deterministic-router/issues/3).
+- Gate B remains blocked on Issue #3.
+- Keep `shadow` as the default. Do not enable AUTO until Issue #3 passes.
+- Manual user model selection is authoritative.
+- If authoritative persisted model-selection state cannot be established after restart, fail closed rather than guessing.
+- Scope for Issue #3: restart/pre-existing selection, clearing back to default, two-session isolation, session reset/deletion, ambiguous or missing state, regression coverage, and `npm run check`.
+- Do not alter tier classification or model mappings.
+
+---
+
+# Completed issue: #2 — actual model-call telemetry and decision correlation
 
 ## 2026-09-26
 
