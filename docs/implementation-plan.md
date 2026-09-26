@@ -16,7 +16,7 @@ Run in `shadow` mode and verify the actual target runtime exposes the expected c
 
 - `before_model_resolve`
 - `session:patch`
-- `model_call_started` / `model_call_ended` for sanitized effective-model telemetry on the embedded path; establish a separately supported provider-call observation for native Codex (see [effective-model observability](model-observability.md))
+- `model_call_started` / `model_call_ended` for sanitized provider-call telemetry on the embedded path; record the strongest separately labelled runtime-model observation supported by native Codex (see [effective-model observability](model-observability.md))
 - subagent lifecycle hooks
 
 **Gate:** document the concrete fields observed on the deployed OpenClaw build.

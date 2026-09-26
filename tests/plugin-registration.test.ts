@@ -56,4 +56,50 @@ describe("plugin registration contract", () => {
     expect(on).toHaveBeenCalledWith("model_call_ended", expect.any(Function));
     expect(on).toHaveBeenCalledWith("agent_end", expect.any(Function));
   });
+
+  it("records selected-only telemetry without applying an override in shadow mode", () => {
+    const registerHook = vi.fn();
+    const on = vi.fn();
+    const info = vi.fn();
+    const api = {
+      pluginConfig: { mode: "shadow" },
+      registerHook,
+      on,
+      logger: {
+        info,
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      },
+    };
+
+    plugin.register(api as never);
+
+    const beforeModelResolve = on.mock.calls.find(
+      ([eventName]) => eventName === "before_model_resolve",
+    )?.[1] as (
+      event: { prompt: string },
+      context: { sessionKey: string; runId: string; agentId: string },
+    ) => unknown;
+
+    expect(beforeModelResolve).toBeDefined();
+    expect(beforeModelResolve(
+      { prompt: "Summarize this short note." },
+      { sessionKey: "shadow-session", runId: "shadow-run", agentId: "agent" },
+    )).toBeUndefined();
+
+    const auditMessage = info.mock.calls
+      .map(([message]) => message)
+      .find((message): message is string =>
+        typeof message === "string"
+        && message.includes('"verificationLevel":"selected-only"'),
+      );
+    expect(auditMessage).toBeDefined();
+    expect(JSON.parse(auditMessage!.slice("[deterministic-router] ".length))).toMatchObject({
+      runId: "shadow-run",
+      mode: "shadow",
+      verificationLevel: "selected-only",
+      applied: false,
+    });
+  });
 });

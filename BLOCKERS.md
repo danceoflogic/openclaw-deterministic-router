@@ -1,4 +1,4 @@
-# Issue #2 blockers
+# Issue #2 blockers and accepted limitations
 
 ## 2026-09-26 — local validation dependency interruption resolved
 
@@ -19,4 +19,8 @@ Runtime evidence from the installed OpenClaw `2026.9.6 (eb377ac)` and managed Co
 
 The router now consumes that metadata-only trusted diagnostic SDK surface into `model_identity_observed` records with `observationScope: "turn"`, `source: "diagnostic_model_call"`, and `resolvedProvider`/`resolvedModel`. The run-end fallback remains separately labelled as `observationScope: "run"`, `source: "agent_end_context"`, and callId-free. Neither signal claims a provider request or per-request effective model; embedded `model_call_*` records retain `effective*` labels because OpenClaw documents those as provider-call metadata.
 
-Issue #2 cannot be closed for native Codex until OpenClaw/Codex exposes and the project verifies a supported call-level provider/model observation, including retries/fallbacks. The current loader smoke proves registration only; it does not prove a live native Codex run or actual provider-call identity. No live inference was attempted because obtaining it would require disturbing the production-like auth/config boundary.
+## Current status
+
+There is no unresolved blocker for the current Issue #2 contract. Native Codex does not expose a supported provider-call identity for every hidden request, retry, or fallback. The issue explicitly accepts that limitation when the strongest supported observation is recorded honestly as `verificationLevel: "runtime-model"` rather than `provider-call`.
+
+The current loader smoke proves plugin registration and the unit tests prove filtering/correlation of the supported metadata-only diagnostic surface. It does not claim a live native Codex run or per-request provider identity. No live inference was attempted because obtaining it would require disturbing the production-like auth/config boundary.

@@ -19,6 +19,7 @@ function auditFor(runId: string, decisionId: string, provider: string, model: st
     confidence: 1,
     selectedProvider: provider,
     selectedModel: model,
+    verificationLevel: "selected-only",
     manualLock: false,
     applied: true,
     reason: "test decision",
@@ -40,6 +41,7 @@ describe("model-call telemetry correlation", () => {
       applied: true,
     });
     registry.recordDecision(audit);
+    expect(audit.verificationLevel).toBe("selected-only");
 
     const firstStarted = registry.recordCallStarted({
       runId: "run-1",
@@ -65,6 +67,7 @@ describe("model-call telemetry correlation", () => {
 
     expect(firstStarted.selectedProvider).toBe(decision.target.provider);
     expect(firstStarted.selectedModel).toBe(decision.target.model);
+    expect(firstStarted.verificationLevel).toBe("provider-call");
     expect(firstStarted.effectiveProvider).toBe("openai");
     expect(firstStarted.effectiveModel).toBe("gpt-5.6-sol");
     expect(firstEnded.decisionId).toBe(firstStarted.decisionId);
@@ -316,6 +319,7 @@ describe("model-call telemetry correlation", () => {
       model: "resolved-codex-model",
     })).toMatchObject({
       kind: "model_identity_observed",
+      verificationLevel: "runtime-model",
       observationScope: "run",
       source: "agent_end_context",
       runId: "codex-run",
@@ -374,6 +378,7 @@ describe("model-call telemetry correlation", () => {
 
     expect(started).toMatchObject({
       kind: "model_identity_observed",
+      verificationLevel: "runtime-model",
       observationScope: "turn",
       observationUnit: "turn",
       source: "diagnostic_model_call",
@@ -387,6 +392,7 @@ describe("model-call telemetry correlation", () => {
     });
     expect(ended).toMatchObject({
       phase: "ended",
+      verificationLevel: "runtime-model",
       outcome: "completed",
       durationMs: 240,
       decisionId: "decision-turn",

@@ -14,6 +14,7 @@ export type AuditRecord = {
   confidence: number;
   selectedProvider: string;
   selectedModel: string;
+  verificationLevel: "selected-only";
   manualLock: boolean;
   applied: boolean;
   reason: string;
@@ -77,6 +78,7 @@ type NativeModelCallEndedEvent = Extract<
 export type ModelCallTelemetryRecord = {
   timestamp: string;
   kind: "model_call_started" | "model_call_ended";
+  verificationLevel: "provider-call";
   runId: string;
   callId: string;
   decisionId?: string;
@@ -102,6 +104,7 @@ export type CorrelatedModelCall = {
 export type NativeModelCallObservationRecord = {
   timestamp: string;
   kind: "model_identity_observed";
+  verificationLevel: "runtime-model";
   observationScope: "turn";
   observationUnit: "turn";
   source: "diagnostic_model_call";
@@ -182,6 +185,7 @@ export type ModelCallCorrelationRegistryOptions = {
 export type ResolvedModelObservationRecord = {
   timestamp: string;
   kind: "model_identity_observed";
+  verificationLevel: "runtime-model";
   runId: string;
   observationScope: "run";
   source: "agent_end_context";
@@ -226,6 +230,7 @@ export function makeAuditRecord(params: {
     confidence: params.decision.confidence,
     selectedProvider: params.decision.target.provider,
     selectedModel: params.decision.target.model,
+    verificationLevel: "selected-only",
     manualLock: params.manualLock,
     applied: params.applied,
     reason: params.reason ?? params.decision.reason,
@@ -392,6 +397,7 @@ export class ModelCallCorrelationRegistry {
     return {
       timestamp: new Date(this.now()).toISOString(),
       kind: "model_identity_observed",
+      verificationLevel: "runtime-model",
       runId: params.runId,
       observationScope: "run",
       source: "agent_end_context",
@@ -513,6 +519,7 @@ export class ModelCallCorrelationRegistry {
     return {
       timestamp: new Date(this.now()).toISOString(),
       kind,
+      verificationLevel: "provider-call",
       runId: event.runId,
       callId: event.callId,
       decisionId: selected?.decisionId,
@@ -537,6 +544,7 @@ export class ModelCallCorrelationRegistry {
     return {
       timestamp: new Date(this.now()).toISOString(),
       kind: "model_identity_observed",
+      verificationLevel: "runtime-model",
       observationScope: "turn",
       observationUnit: "turn",
       source: "diagnostic_model_call",
