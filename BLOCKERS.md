@@ -45,3 +45,11 @@ The router consumes that metadata-only trusted diagnostic SDK surface into `mode
 Issue #2 is complete. PR #15 was merged to `main`, and the native Codex provider-call-per-hidden-request limitation is an accepted `runtime-model` limitation under the final Issue #2 contract.
 
 The loader smoke proves plugin registration and the unit tests prove filtering/correlation of the supported metadata-only diagnostic surface. It does not claim a live native Codex run or per-request provider identity.
+
+## Issue #3 implementation status
+
+The authoritative OpenClaw 2026.9.6 runtime session accessor is available and
+is now reconciled before each routing decision. Missing, malformed, or
+ambiguous persisted selection state fails AUTO closed and removes stale
+process-local locks. No active implementation blocker remains; the branch is
+awaiting local review only.

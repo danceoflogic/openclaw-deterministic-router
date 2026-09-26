@@ -35,5 +35,6 @@ export type RouteWorkDecision = {
 export type ManualModelLock = {
   provider?: string;
   model?: string;
+  sessionId?: string;
   updatedAt: number;
 };

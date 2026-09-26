@@ -11,6 +11,14 @@
 - Scope for Issue #3: restart/pre-existing selection, clearing back to default, two-session isolation, session reset/deletion, ambiguous or missing state, regression coverage, and `npm run check`.
 - Do not alter tier classification or model mappings.
 
+## 2026-09-26 — implementation
+
+- Added per-turn authoritative reconciliation through OpenClaw 2026.9.6's runtime session accessor.
+- Added explicit locked/clear/unknown registry state and stale-lock invalidation for missing or ambiguous entries.
+- Added regression coverage for restart, default clearing, session isolation, reset/recreation, deletion, and fail-closed behavior.
+- Updated the integration and acceptance documentation.
+- Validation passed: `npm run check` (33 tests, typecheck, ESM build, declaration build) and the isolated CI runtime-loader smoke.
+
 ---
 
 # Completed issue: #2 — actual model-call telemetry and decision correlation
