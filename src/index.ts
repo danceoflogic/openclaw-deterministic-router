@@ -122,6 +122,14 @@ export default definePluginEntry({
       const runId = typeof event.runId === "string" && event.runId.length > 0
         ? event.runId
         : ctx.runId;
+      const observation = calls.recordEffectiveModelObservation({
+        runId,
+        provider: ctx.modelProviderId,
+        model: ctx.modelId,
+      });
+      if (observation) {
+        api.logger?.info?.(`[deterministic-router] ${JSON.stringify(observation)}`);
+      }
       calls.completeRun(runId);
     });
   },

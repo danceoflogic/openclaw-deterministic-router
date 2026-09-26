@@ -305,4 +305,42 @@ describe("model-call telemetry correlation", () => {
     });
     expect(afterEviction.decisionId).toBeUndefined();
   });
+
+  it("records a run-scoped effective model from native runtime context", () => {
+    const registry = new ModelCallCorrelationRegistry();
+    registry.recordDecision(auditFor("codex-run", "decision-codex", "openai", "configured-model"));
+
+    expect(registry.recordEffectiveModelObservation({
+      runId: "codex-run",
+      provider: "openai",
+      model: "effective-codex-model",
+    })).toMatchObject({
+      kind: "effective_model_observed",
+      observationScope: "run",
+      source: "agent_end_context",
+      runId: "codex-run",
+      decisionId: "decision-codex",
+      selectedProvider: "openai",
+      selectedModel: "configured-model",
+      effectiveProvider: "openai",
+      effectiveModel: "effective-codex-model",
+    });
+  });
+
+  it("does not duplicate embedded call telemetry with a run-scoped observation", () => {
+    const registry = new ModelCallCorrelationRegistry();
+    registry.recordDecision(auditFor("embedded-run", "decision-embedded", "p", "m"));
+    registry.recordCallStarted({
+      runId: "embedded-run",
+      callId: "call-1",
+      provider: "p",
+      model: "m",
+    });
+
+    expect(registry.recordEffectiveModelObservation({
+      runId: "embedded-run",
+      provider: "p",
+      model: "m",
+    })).toBeUndefined();
+  });
 });

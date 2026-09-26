@@ -77,6 +77,7 @@ type ActiveCall = CorrelatedModelCall & {
 type RunCorrelation = {
   decision?: SelectedDecision;
   calls: Map<string, ActiveCall>;
+  callEventsObserved: boolean;
   lastTouched: number;
   sequence: number;
   /** Set once OpenClaw reports that this run has ended. */
@@ -100,6 +101,20 @@ export type ModelCallCorrelationRegistryOptions = {
    * this deliberately long timeout expires.
    */
   activeCallMaxAgeMs?: number;
+};
+
+export type EffectiveModelObservationRecord = {
+  timestamp: string;
+  kind: "effective_model_observed";
+  runId: string;
+  observationScope: "run";
+  source: "agent_end_context";
+  decisionId?: string;
+  mode?: RouterMode;
+  selectedProvider?: string;
+  selectedModel?: string;
+  effectiveProvider: string;
+  effectiveModel: string;
 };
 
 const DEFAULT_MAX_INACTIVE_RUNS = 1024;
@@ -187,6 +202,7 @@ export class ModelCallCorrelationRegistry {
       return this.makeRecord(event, "model_call_started");
     }
     const run = existing ?? this.getOrCreateRun(event.runId);
+    run.callEventsObserved = true;
     const call = run.calls.get(event.callId) ?? {
       runId: event.runId,
       callId: event.callId,
@@ -205,8 +221,9 @@ export class ModelCallCorrelationRegistry {
   }
 
   recordCallEnded(event: ModelCallEndedEvent): ModelCallTelemetryRecord {
-    const run = this.runs.get(event.runId);
+    const run = this.runs.get(event.runId) ?? this.getOrCreateRun(event.runId);
     const call = run?.calls.get(event.callId);
+    run.callEventsObserved = true;
     // An end without a matching start is intentionally uncorrelated: looking
     // up the latest run decision here could assign it to a newer call.
     const record = this.makeRecord(event, "model_call_ended", call?.selected, event);
@@ -223,6 +240,36 @@ export class ModelCallCorrelationRegistry {
     return [...(this.runs.get(runId)?.calls.values() ?? [])].map(
       ({ selected: _selected, startedAt: _startedAt, ...call }) => call,
     );
+  }
+
+  /**
+   * Observes the resolved model context available at run end for native
+   * runtimes (including Codex app-server). This is deliberately run-scoped:
+   * it has no provider request/callId claim and is only a fallback when the
+   * adapter emitted no model_call_* events for the run.
+   */
+  recordEffectiveModelObservation(params: {
+    runId?: string;
+    provider?: string;
+    model?: string;
+  }): EffectiveModelObservationRecord | undefined {
+    if (!params.runId || !params.provider || !params.model) return undefined;
+    const run = this.runs.get(params.runId);
+    if (run?.callEventsObserved) return undefined;
+
+    return {
+      timestamp: new Date(this.now()).toISOString(),
+      kind: "effective_model_observed",
+      runId: params.runId,
+      observationScope: "run",
+      source: "agent_end_context",
+      decisionId: run?.decision?.decisionId,
+      mode: run?.decision?.mode,
+      selectedProvider: run?.decision?.selectedProvider,
+      selectedModel: run?.decision?.selectedModel,
+      effectiveProvider: params.provider,
+      effectiveModel: params.model,
+    };
   }
 
   /**
@@ -245,6 +292,7 @@ export class ModelCallCorrelationRegistry {
 
     const run: RunCorrelation = {
       calls: new Map(),
+      callEventsObserved: false,
       lastTouched: this.now(),
       sequence: ++this.sequence,
     };
