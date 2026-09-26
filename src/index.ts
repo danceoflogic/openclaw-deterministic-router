@@ -1,5 +1,6 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { parsePluginConfig } from "./config.js";
+import { onNativeModelCallDiagnostic } from "./native-diagnostics.js";
 import { routeWork } from "./route-work.js";
 import { applySessionPatch, SessionLockRegistry } from "./session-lock.js";
 import { makeAuditRecord, ModelCallCorrelationRegistry } from "./telemetry.js";
@@ -113,6 +114,16 @@ export default definePluginEntry({
 
     api.on("model_call_ended", (event) => {
       const telemetry = calls.recordCallEnded(event);
+      api.logger?.info?.(`[deterministic-router] ${JSON.stringify(telemetry)}`);
+    });
+
+    // Native Codex app-server emits trusted model.call.* diagnostics at turn
+    // scope. Keep these separate from embedded provider-call hooks: one turn
+    // may contain hidden provider requests, retries, or tool work.
+    onNativeModelCallDiagnostic((event) => {
+      const telemetry = event.type === "model.call.started"
+        ? calls.recordNativeModelCallStarted(event)
+        : calls.recordNativeModelCallEnded(event);
       api.logger?.info?.(`[deterministic-router] ${JSON.stringify(telemetry)}`);
     });
 

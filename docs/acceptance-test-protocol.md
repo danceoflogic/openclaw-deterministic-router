@@ -44,7 +44,7 @@ Do not enable AUTO until both pass.
 
 ### Actual model telemetry
 
-For the embedded model-call path, use OpenClaw 2026.9.6 `model_call_started` and `model_call_ended` typed hooks to capture sanitized effective provider/model metadata. These hooks are **not documented for native Codex**. Native Codex may additionally produce a weaker, run/attempt-scoped `model_identity_observed` record from adapter-visible context; its `resolved*` fields must not be treated as provider-call evidence. `agent_end` or a Codex adapter's resolved model or `llm_input` / `llm_output` observation does not independently prove the provider/model actually called. See [effective-model observability](model-observability.md).
+For the embedded model-call path, use OpenClaw 2026.9.6 `model_call_started` and `model_call_ended` typed hooks to capture sanitized effective provider/model metadata. These hooks are **not emitted by native Codex**. Native Codex's installed bundle also exposes trusted `model.call.*` diagnostics, but they are explicitly `observationUnit: "turn"`; record them as turn-scoped `model_identity_observed` telemetry, not provider-call evidence. Native adapter context remains a weaker run/attempt-scoped signal. `agent_end`, a Codex adapter's resolved model, `llm_input` / `llm_output`, or a turn diagnostic does not independently prove the provider/model actually called per hidden request, retry, or fallback. See [effective-model observability](model-observability.md).
 
 Correlate router decisions and model calls with `runId`; preserve multiple `callId` values when a run contains retries or multiple calls.
 

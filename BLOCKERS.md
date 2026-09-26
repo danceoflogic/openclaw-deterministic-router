@@ -6,11 +6,17 @@ The initial local run encountered a partial dependency tree. The missing TypeBox
 
 Validation now passes:
 
-- `npm run check`: typecheck, 21 tests, ESM build, and declaration build.
+- `npm run check`: typecheck, 24 tests, ESM build, and declaration build.
 - OpenClaw 2026.9.6 runtime-loader smoke: passed in an isolated temporary state/config.
 
-## 2026-09-26 — native Codex call-level evidence remains open
+## 2026-09-26 — native Codex emits turn diagnostics, not provider-call hooks
 
-The run-end context fallback is labelled `model_identity_observed` with `observationScope: "run"`, `source: "agent_end_context"`, and `resolvedProvider`/`resolvedModel`. It does not claim a provider request, `callId`, retry, or fallback was observed. Embedded `model_call_*` records retain the `effective*` labels because OpenClaw documents those as provider-call metadata.
+Runtime evidence from the installed OpenClaw `2026.9.6 (eb377ac)` and managed Codex bundle:
 
-Issue #2 cannot be closed for native Codex until OpenClaw/Codex exposes and the project verifies a supported call-level provider/model observation, including retries/fallbacks. The current loader smoke proves registration only; it does not prove native Codex emission or actual provider-call identity.
+- The native Codex bundle does not contain or dispatch the typed `model_call_started`/`model_call_ended` hooks. Those hooks are documented as embedded model-call-path telemetry; native Codex lifecycle hooks are adapter observations.
+- The Codex emitter dispatches trusted `model.call.started`/`completed`/`error` diagnostics with `runId`, `callId`, provider/model, api/transport, and `observationUnit: "turn"`. Its installed call ID is synthetic (`<runId>:codex-model:1`), not an upstream provider request ID.
+- OpenClaw documents `turn` as one opaque CLI turn that may contain hidden model requests, retries, tool work, or background work. The bundled compact/fresh-thread retry paths remain inside that one diagnostic lifecycle, so no supported per-provider retry/fallback call identity is exposed.
+
+The router now consumes that metadata-only trusted diagnostic SDK surface into `model_identity_observed` records with `observationScope: "turn"`, `source: "diagnostic_model_call"`, and `resolvedProvider`/`resolvedModel`. The run-end fallback remains separately labelled as `observationScope: "run"`, `source: "agent_end_context"`, and callId-free. Neither signal claims a provider request or per-request effective model; embedded `model_call_*` records retain `effective*` labels because OpenClaw documents those as provider-call metadata.
+
+Issue #2 cannot be closed for native Codex until OpenClaw/Codex exposes and the project verifies a supported call-level provider/model observation, including retries/fallbacks. The current loader smoke proves registration only; it does not prove a live native Codex run or actual provider-call identity. No live inference was attempted because obtaining it would require disturbing the production-like auth/config boundary.

@@ -343,4 +343,99 @@ describe("model-call telemetry correlation", () => {
       model: "m",
     })).toBeUndefined();
   });
+
+  it("correlates native turn diagnostics without calling them provider-call evidence", () => {
+    const registry = new ModelCallCorrelationRegistry();
+    registry.recordDecision(auditFor("codex-turn", "decision-turn", "openai", "configured-model"));
+
+    const started = registry.recordNativeModelCallStarted({
+      type: "model.call.started",
+      runId: "codex-turn",
+      callId: "codex-turn:codex-model:1",
+      provider: "openai",
+      model: "resolved-codex-model",
+      api: "responses",
+      transport: "stdio",
+      observationUnit: "turn",
+    });
+
+    registry.recordDecision(auditFor("codex-turn", "later-decision", "other", "other-model"));
+    const ended = registry.recordNativeModelCallEnded({
+      type: "model.call.completed",
+      runId: "codex-turn",
+      callId: "codex-turn:codex-model:1",
+      provider: "openai",
+      model: "resolved-codex-model",
+      api: "responses",
+      transport: "stdio",
+      observationUnit: "turn",
+      durationMs: 240,
+    });
+
+    expect(started).toMatchObject({
+      kind: "model_identity_observed",
+      observationScope: "turn",
+      observationUnit: "turn",
+      source: "diagnostic_model_call",
+      phase: "started",
+      callId: "codex-turn:codex-model:1",
+      decisionId: "decision-turn",
+      selectedProvider: "openai",
+      selectedModel: "configured-model",
+      resolvedProvider: "openai",
+      resolvedModel: "resolved-codex-model",
+    });
+    expect(ended).toMatchObject({
+      phase: "ended",
+      outcome: "completed",
+      durationMs: 240,
+      decisionId: "decision-turn",
+      selectedProvider: "openai",
+      selectedModel: "configured-model",
+    });
+    expect(registry.nativeCallsForRun("codex-turn")).toEqual([]);
+    expect(registry.recordResolvedModelObservation({
+      runId: "codex-turn",
+      provider: "openai",
+      model: "resolved-codex-model",
+    })).toMatchObject({
+      observationScope: "run",
+      source: "agent_end_context",
+      resolvedProvider: "openai",
+      resolvedModel: "resolved-codex-model",
+    });
+  });
+
+  it("retains native turn snapshots through a delayed terminal event", () => {
+    const registry = new ModelCallCorrelationRegistry({ terminalGraceMs: 100 });
+    registry.recordDecision(auditFor("delayed-turn", "decision-delayed", "p", "m"));
+    const started = registry.recordNativeModelCallStarted({
+      type: "model.call.started",
+      runId: "delayed-turn",
+      callId: "turn-1",
+      provider: "effective-p",
+      model: "effective-m",
+      observationUnit: "turn",
+    });
+
+    registry.completeRun("delayed-turn");
+    const ended = registry.recordNativeModelCallEnded({
+      type: "model.call.error",
+      runId: "delayed-turn",
+      callId: "turn-1",
+      provider: "effective-p",
+      model: "effective-m",
+      observationUnit: "turn",
+      durationMs: 11,
+      errorCategory: "timeout",
+    });
+
+    expect(ended).toMatchObject({
+      phase: "ended",
+      outcome: "error",
+      errorCategory: "timeout",
+      decisionId: started.decisionId,
+    });
+    expect(registry.nativeCallsForRun("delayed-turn")).toEqual([]);
+  });
 });
