@@ -9,7 +9,7 @@ Use this checklist for public releases.
 - [ ] `shadow` remains the default unless a deliberate breaking decision changes it.
 - [ ] Golden routing fixtures are reviewed for regressions.
 - [ ] Manual/persisted session selection protection is tested on the target host.
-- [ ] Effective provider/model is independently verified for every supported runtime path: `model_call_started`/`model_call_ended` on embedded calls, and a demonstrated actual-call observation on native Codex. Session/status or `agent_end` alone is insufficient (see [effective-model observability](model-observability.md)).
+- [ ] Effective provider/model is independently verified using the strongest supported evidence for each runtime path: `model_call_started`/`model_call_ended` provider-call telemetry on embedded calls, and explicitly labelled `runtime-model` evidence on native Codex. Native runtime-model observations must not be represented as provider-call evidence (see [effective-model observability](model-observability.md)).
 - [ ] No raw prompt, credential, session key, or provider secret is emitted in routine telemetry.
 - [ ] `CHANGELOG.md` contains the release notes.
 - [ ] Version in `package.json` and `openclaw.plugin.json` is aligned where applicable.
