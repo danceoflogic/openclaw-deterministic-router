@@ -306,24 +306,24 @@ describe("model-call telemetry correlation", () => {
     expect(afterEviction.decisionId).toBeUndefined();
   });
 
-  it("records a run-scoped effective model from native runtime context", () => {
+  it("records a run-scoped resolved model from native runtime context", () => {
     const registry = new ModelCallCorrelationRegistry();
     registry.recordDecision(auditFor("codex-run", "decision-codex", "openai", "configured-model"));
 
-    expect(registry.recordEffectiveModelObservation({
+    expect(registry.recordResolvedModelObservation({
       runId: "codex-run",
       provider: "openai",
-      model: "effective-codex-model",
+      model: "resolved-codex-model",
     })).toMatchObject({
-      kind: "effective_model_observed",
+      kind: "model_identity_observed",
       observationScope: "run",
       source: "agent_end_context",
       runId: "codex-run",
       decisionId: "decision-codex",
       selectedProvider: "openai",
       selectedModel: "configured-model",
-      effectiveProvider: "openai",
-      effectiveModel: "effective-codex-model",
+      resolvedProvider: "openai",
+      resolvedModel: "resolved-codex-model",
     });
   });
 
@@ -337,7 +337,7 @@ describe("model-call telemetry correlation", () => {
       model: "m",
     });
 
-    expect(registry.recordEffectiveModelObservation({
+    expect(registry.recordResolvedModelObservation({
       runId: "embedded-run",
       provider: "p",
       model: "m",

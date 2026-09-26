@@ -103,9 +103,9 @@ export type ModelCallCorrelationRegistryOptions = {
   activeCallMaxAgeMs?: number;
 };
 
-export type EffectiveModelObservationRecord = {
+export type ResolvedModelObservationRecord = {
   timestamp: string;
-  kind: "effective_model_observed";
+  kind: "model_identity_observed";
   runId: string;
   observationScope: "run";
   source: "agent_end_context";
@@ -113,8 +113,8 @@ export type EffectiveModelObservationRecord = {
   mode?: RouterMode;
   selectedProvider?: string;
   selectedModel?: string;
-  effectiveProvider: string;
-  effectiveModel: string;
+  resolvedProvider: string;
+  resolvedModel: string;
 };
 
 const DEFAULT_MAX_INACTIVE_RUNS = 1024;
@@ -248,18 +248,18 @@ export class ModelCallCorrelationRegistry {
    * it has no provider request/callId claim and is only a fallback when the
    * adapter emitted no model_call_* events for the run.
    */
-  recordEffectiveModelObservation(params: {
+  recordResolvedModelObservation(params: {
     runId?: string;
     provider?: string;
     model?: string;
-  }): EffectiveModelObservationRecord | undefined {
+  }): ResolvedModelObservationRecord | undefined {
     if (!params.runId || !params.provider || !params.model) return undefined;
     const run = this.runs.get(params.runId);
     if (run?.callEventsObserved) return undefined;
 
     return {
       timestamp: new Date(this.now()).toISOString(),
-      kind: "effective_model_observed",
+      kind: "model_identity_observed",
       runId: params.runId,
       observationScope: "run",
       source: "agent_end_context",
@@ -267,8 +267,8 @@ export class ModelCallCorrelationRegistry {
       mode: run?.decision?.mode,
       selectedProvider: run?.decision?.selectedProvider,
       selectedModel: run?.decision?.selectedModel,
-      effectiveProvider: params.provider,
-      effectiveModel: params.model,
+      resolvedProvider: params.provider,
+      resolvedModel: params.model,
     };
   }
 

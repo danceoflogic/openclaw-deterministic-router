@@ -122,7 +122,7 @@ export default definePluginEntry({
       const runId = typeof event.runId === "string" && event.runId.length > 0
         ? event.runId
         : ctx.runId;
-      const observation = calls.recordEffectiveModelObservation({
+      const observation = calls.recordResolvedModelObservation({
         runId,
         provider: ctx.modelProviderId,
         model: ctx.modelId,

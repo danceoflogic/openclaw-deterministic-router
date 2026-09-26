@@ -1,13 +1,16 @@
 # Issue #2 blockers
 
-## 2026-09-26 — local validation dependencies unavailable
+## 2026-09-26 — local validation dependency interruption resolved
 
-Commands and results:
+The initial local run encountered a partial dependency tree. The missing TypeBox and TypeScript runtime files were restored from the installed OpenClaw 2026.9.6 dependency copy; no source dependency or lockfile was changed.
 
-- `npm run check` fails immediately with `sh: 1: tsc: not found`.
-- A bounded `npm install --no-audit --no-fund --prefer-offline` attempt fails with `npm ERR! ETARGET No matching version found for openclaw@2026.9.6`.
-- The partial `node_modules` tree contains incomplete TypeScript/Vitest packages and an empty `@blockrun/router-core` directory. Direct attempts fail because TypeScript's `lib/tsc.js` and a Vitest chunk are missing.
-- `openclaw --version` confirms the installed host runtime is `OpenClaw 2026.9.6 (eb377ac)`.
-- The documented runtime-loader smoke command was attempted with that host runtime; it reports the package extension entry is missing because `dist/index.js` has not been built, and exits non-zero.
+Validation now passes:
 
-Smallest unresolved question: restore the project dependencies/build artifacts from a source that provides the pinned GitHub dependency and the project-compatible OpenClaw 2026.9.6 package, then rerun `npm run check` and the loader smoke test.
+- `npm run check`: typecheck, 21 tests, ESM build, and declaration build.
+- OpenClaw 2026.9.6 runtime-loader smoke: passed in an isolated temporary state/config.
+
+## 2026-09-26 — native Codex call-level evidence remains open
+
+The run-end context fallback is labelled `model_identity_observed` with `observationScope: "run"`, `source: "agent_end_context"`, and `resolvedProvider`/`resolvedModel`. It does not claim a provider request, `callId`, retry, or fallback was observed. Embedded `model_call_*` records retain the `effective*` labels because OpenClaw documents those as provider-call metadata.
+
+Issue #2 cannot be closed for native Codex until OpenClaw/Codex exposes and the project verifies a supported call-level provider/model observation, including retries/fallbacks. The current loader smoke proves registration only; it does not prove native Codex emission or actual provider-call identity.

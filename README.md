@@ -150,7 +150,7 @@ Each decision is logged as one JSON object containing fields such as:
 
 Raw prompts are not written to the audit record. Session keys are hashed before logging.
 
-On the embedded model-call path, the router also records sanitized `model_call_started` / `model_call_ended` events with the selected target and the effective provider/model per call. **This does not currently verify native Codex provider calls:** `agent_end` is used for cleanup, and Codex adapter-level lifecycle observations are not equivalent to provider-call telemetry. See [effective-model observability](docs/model-observability.md) for the runtime-specific guarantee and the open issue #2 gate.
+On the embedded model-call path, the router also records sanitized `model_call_started` / `model_call_ended` events with the selected target and the effective provider/model per call. Native Codex context may produce a separately labelled run/attempt-scoped `model_identity_observed` record with `resolved*` fields, but **this does not currently verify native Codex provider calls**: `agent_end` and Codex adapter-level lifecycle observations are not equivalent to provider-call telemetry. See [effective-model observability](docs/model-observability.md) for the runtime-specific guarantee and the open issue #2 gate.
 
 ## Important OpenClaw integration boundary
 

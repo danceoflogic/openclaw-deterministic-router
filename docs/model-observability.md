@@ -6,7 +6,8 @@ Issue [#2](https://github.com/danceoflogic/openclaw-deterministic-router/issues/
 
 - `model_call_started` and `model_call_ended` supply sanitized `provider`/`model` metadata for an embedded OpenClaw provider call. The router logs these as `effectiveProvider`/`effectiveModel`, separately from the selected target.
 - Correlation uses `runId` and preserves each `callId`. The selected decision is snapshotted at call start, so a later decision cannot relabel an earlier call; retries and multiple calls are not collapsed into one run-level result.
-- `agent_end` marks the run terminal for bounded correlation-state cleanup. It is **not** a provider-call event and supplies no independent effective provider/model or `callId` for this implementation.
+- `agent_end` marks the run terminal for bounded correlation-state cleanup. When its adapter context supplies `modelProviderId`/`modelId`, the router records those as a run-scoped `model_identity_observed` signal with `source: "agent_end_context"` and `resolvedProvider`/`resolvedModel`. This is not a provider-call event and supplies no `callId` or independent effective-model guarantee.
+- Native Codex `llm_output` observations are compatible with the same weaker identity distinction when emitted; they must use `observationScope: "attempt"` and `source: "llm_output"`, not `effective*` labels.
 - Unit tests exercise synthetic call events and lifecycle ordering. The OpenClaw 2026.9.6 runtime-loader smoke test verifies hook **registration**, not that a native Codex run emits those hooks or reaches a particular provider/model.
 
 The provider-call hook contract in OpenClaw 2026.9.6 (`docs/plugins/hooks/prompt-and-session.md`, “Debug runtime hooks”) explicitly limits `model_call_started` / `model_call_ended` emission to the **embedded model-call path**. Its Codex v1 support contract (`docs/plugins/codex-harness-runtime/v1-support-contract.md`) lists `llm_input`, `llm_output`, and `agent_end` as adapter-level lifecycle observations. The Codex hook boundary (`docs/plugins/codex-harness-runtime/hooks.md`) says those LLM projections come from app-server notifications and adapter state, not byte-for-byte captures of Codex's internal model request.
@@ -14,9 +15,9 @@ The provider-call hook contract in OpenClaw 2026.9.6 (`docs/plugins/hooks/prompt
 | Runtime path | Current evidence | Guarantee from PR #15 |
 | --- | --- | --- |
 | Embedded model-call path | Documented `model_call_*` provider-call events; correlation and registration tests | A received call event reports effective provider/model at `runId` + `callId` granularity. Live end-to-end coverage still needs validation on the target host. |
-| Native Codex app-server path | Adapter lifecycle observations, including `agent_end`; no documented `model_call_*` emission | At most a resolved run/model identity from adapter-visible context. PR #15 does **not** independently verify the provider/model Codex actually called. |
+| Native Codex app-server path | Adapter lifecycle observations, including `agent_end`; no documented `model_call_*` emission | At most a separately labelled resolved run/model identity from adapter-visible context. PR #15 does **not** independently verify the provider/model Codex actually called. |
 
-`llm_input` / `llm_output` must not be relabelled as provider-call events or assigned fabricated `callId` semantics. Even if an adapter observation reports a model name, that establishes only the identity guaranteed by that adapter event, not a completed provider call or every native retry/fallback.
+`agent_end` context and `llm_input` / `llm_output` must not be relabelled as provider-call events or assigned fabricated `callId` semantics. The router uses `model_identity_observed` with `resolved*` fields for those weaker signals. Even if an adapter observation reports a model name, that establishes only the identity guaranteed by that adapter event, not a completed provider call or every native retry/fallback.
 
 ## Open acceptance gate
 
