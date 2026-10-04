@@ -2,8 +2,58 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { parsePluginConfig } from "./config.js";
 import { onNativeModelCallDiagnostic } from "./native-diagnostics.js";
 import { routeWork } from "./route-work.js";
-import { applySessionPatch, SessionLockRegistry } from "./session-lock.js";
+import {
+  applySessionPatch,
+  reconcilePersistedSessionEntry,
+  SessionLockRegistry,
+  type SessionLockState,
+} from "./session-lock.js";
 import { makeAuditRecord, ModelCallCorrelationRegistry } from "./telemetry.js";
+
+type SessionReaderApi = {
+  runtime?: {
+    agent?: {
+      session?: {
+        getSessionEntry?: (params: {
+          agentId?: string;
+          readConsistency?: "latest";
+          sessionKey: string;
+        }) => unknown;
+      };
+    };
+  };
+};
+
+function reconcileCurrentSession(
+  api: unknown,
+  locks: SessionLockRegistry,
+  sessionKey: string | undefined,
+  agentId: string | undefined,
+): SessionLockState {
+  if (!sessionKey) return "unknown";
+
+  const sessionApi = (api as SessionReaderApi).runtime?.agent?.session;
+  if (!sessionApi || typeof sessionApi.getSessionEntry !== "function") {
+    locks.markUnknown(sessionKey);
+    return "unknown";
+  }
+
+  try {
+    const sessionEntry = sessionApi.getSessionEntry({
+      ...(agentId ? { agentId } : {}),
+      readConsistency: "latest",
+      sessionKey,
+    });
+    reconcilePersistedSessionEntry(locks, sessionKey, sessionEntry);
+  } catch {
+    // A failed or unavailable authoritative read must never fall back to the
+    // previous process-local lock: that would allow a stale lock or stale
+    // absence of a lock to influence AUTO after restart/reset.
+    locks.markUnknown(sessionKey);
+  }
+
+  return locks.getState(sessionKey);
+}
 
 function attachmentCount(event: unknown): number {
   if (typeof event !== "object" || event === null) return 0;
@@ -72,18 +122,29 @@ export default definePluginEntry({
       );
 
       const sessionKey = ctx.sessionKey;
+      const selectionState = config.protectManualSelection
+        ? reconcileCurrentSession(api, locks, sessionKey, ctx.agentId)
+        : "clear";
       const manualLock = Boolean(
-        config.protectManualSelection && sessionKey && locks.get(sessionKey),
+        config.protectManualSelection && selectionState === "locked",
+      );
+      const manualSelectionUnknown = Boolean(
+        config.protectManualSelection && selectionState === "unknown",
       );
 
       const missingSessionKey = config.requireSessionKeyForAuto && !sessionKey;
-      const applied = config.mode === "auto" && !manualLock && !missingSessionKey;
+      const applied = config.mode === "auto"
+        && !manualLock
+        && !manualSelectionUnknown
+        && !missingSessionKey;
 
       const reason = manualLock
         ? "manual session model selection detected; router yielded"
-        : missingSessionKey
-          ? "session identity unavailable; fail-closed without override"
-          : decision.reason;
+        : manualSelectionUnknown
+          ? "persisted session model selection unavailable; fail-closed without override"
+          : missingSessionKey
+            ? "session identity unavailable; fail-closed without override"
+            : decision.reason;
 
       const audit = makeAuditRecord({
         decision,
@@ -150,5 +211,9 @@ export { classifyLocally, estimateTokens } from "./classifier.js";
 export { parsePluginConfig, DEFAULT_PLUGIN_CONFIG } from "./config.js";
 export { maxTier, resolveTier } from "./policy.js";
 export { routeWork } from "./route-work.js";
-export { applySessionPatch, SessionLockRegistry } from "./session-lock.js";
+export {
+  applySessionPatch,
+  reconcilePersistedSessionEntry,
+  SessionLockRegistry,
+} from "./session-lock.js";
 export type * from "./types.js";

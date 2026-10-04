@@ -29,10 +29,13 @@ Test:
 - `/model` selecting Terra
 - `/model` selecting Sol
 - clearing the manual override back to the default/automatic state
+- restarting the plugin/Gateway with a pre-existing persisted selection
+- resetting/deleting and recreating a locked session, plus a second isolated session
+- yielding when persisted selection state is missing or ambiguous
 
 The router must yield to an explicit manual selection.
 
-**Gate:** no manual selection is silently replaced.
+**Gate:** no manual selection is silently replaced, including after restart; stale or uncertain session state never authorizes an AUTO override.
 
 ## Phase 3 — Effective-model correlation
 

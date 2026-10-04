@@ -42,7 +42,7 @@ Every target is configurable.
 - **Deterministic decisions.** Identical classifier inputs produce identical classifier outputs.
 - **Shadow-first rollout.** Observe decisions before allowing overrides.
 - **Manual choice wins.** The router is designed to yield when a session has an explicit model selection.
-- **Fail closed.** If required session identity is unavailable, automatic override is skipped.
+- **Fail closed.** If required session identity or authoritative persisted model-selection state is unavailable, automatic override is skipped.
 - **Auditable operation.** Decisions are emitted as structured JSON without storing the raw prompt.
 - **Policy separate from classification.** Model mappings can change without changing classifier logic.
 - **Reproducible provenance.** The classifier dependency is pinned to an immutable upstream commit.
@@ -124,7 +124,7 @@ The native OpenClaw manifest includes a strict JSON schema. Key options:
 |---|---|---|
 | `mode` | `shadow` | `off`, `shadow`, or `auto` |
 | `ambiguousTier` | `COMPLEX` | deterministic fallback when Router Core returns no confident tier |
-| `protectManualSelection` | `true` | conservatively yield when a persisted session model selection is tracked |
+| `protectManualSelection` | `true` | yield for an authoritative persisted session override; fail closed when that state is unknown |
 | `requireSessionKeyForAuto` | `true` | skip auto override when the session cannot be identified |
 | `minAttachmentTier` | `MEDIUM` | deterministic floor for turns with attachments |
 | `models` | see table above | tier-to-provider/model policy |
@@ -155,7 +155,7 @@ On the embedded model-call path, the router also records sanitized `model_call_s
 
 ## Important OpenClaw integration boundary
 
-`before_model_resolve` is the correct typed hook for deterministic provider/model override, but persisted per-session model state is not directly exposed as a dedicated field in that hook context. This project therefore isolates selection tracking behind a `session:patch` adapter and treats that behavior as an integration gate to verify on each target runtime.
+`before_model_resolve` is the correct typed hook for deterministic provider/model override, but persisted per-session model state is not directly exposed as a dedicated field in that hook context. On OpenClaw 2026.9.6, the plugin reconciles the current session through the trusted `api.runtime.agent.session.getSessionEntry({ sessionKey, agentId, readConsistency: "latest" })` surface before every routing decision. The internal `session:patch` adapter remains a fast path; authoritative reconciliation also covers plugin/Gateway restart, session reset/deletion, recreated session keys, and model changes made before the router starts. Missing or ambiguous persisted state fails closed rather than reusing a stale process-local lock.
 
 The implementation plan explicitly tests this before production `auto` mode.
 

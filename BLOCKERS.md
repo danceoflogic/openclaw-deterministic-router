@@ -1,21 +1,26 @@
-# Active blocker context
+# Acceptance and blocker context
 
-## Current active blocker: Issue #3 — manual model lock across restart and pre-existing session state
+## Issue #3 — closed on GitHub; implementation pending PR
 
-Gate B is currently blocked on [Issue #3](https://github.com/danceoflogic/openclaw-deterministic-router/issues/3).
+[Issue #3](https://github.com/danceoflogic/openclaw-deterministic-router/issues/3)
+was closed after its comment recorded code-level and isolated-runtime evidence.
+The implementation is on `issue-3-manual-lock-restart`, not yet merged into `main`.
 
-The router must prove that explicit manual model selections remain authoritative across plugin/Gateway restart and pre-existing session state. If authoritative persisted model-selection state cannot be established, the router must fail closed rather than guess.
+`npm run check` passed (typecheck, 33 tests, build). Regression tests cover
+pre-existing persisted overrides, a fresh router instance, default clearing,
+two-session isolation, reset/recreation, and missing or ambiguous state failing
+closed. An isolated OpenClaw 2026.9.8 Gateway loaded the plugin and hooks and
+passed health/readiness checks.
 
-Issue #3 scope includes:
+A **live interactive `/model`-then-Gateway-restart round-trip was not
+completed**. The attempted CLI command was interpreted as a prompt, and the
+disposable profile's configured target was unknown. The tests and loader smoke
+must not be described as that live acceptance check.
 
-- restart with a pre-existing manual model selection;
-- returning the session to default/automatic selection;
-- two-session isolation;
-- session reset/deletion without stale lock leakage;
-- ambiguous or missing persisted state;
-- regression coverage and `npm run check`.
-
-Keep `shadow` as the default. Do not enable AUTO until Issue #3 passes. Do not alter tier classification or model mappings.
+Keep `shadow` as the repository default; do not enable AUTO by default.
+Controlled AUTO validation still requires the live manual-selection and
+effective-model gates in the acceptance protocol. Do not alter tier
+classification or model mappings as part of this issue.
 
 ---
 
@@ -45,3 +50,11 @@ The router consumes that metadata-only trusted diagnostic SDK surface into `mode
 Issue #2 is complete. PR #15 was merged to `main`, and the native Codex provider-call-per-hidden-request limitation is an accepted `runtime-model` limitation under the final Issue #2 contract.
 
 The loader smoke proves plugin registration and the unit tests prove filtering/correlation of the supported metadata-only diagnostic surface. It does not claim a live native Codex run or per-request provider identity.
+
+## Issue #3 implementation status
+
+The authoritative session accessor is reconciled before each routing decision.
+Missing, malformed, or ambiguous persisted selection state fails AUTO closed
+and removes stale process-local locks. The code-level blocker is addressed on
+the issue branch; the live interactive restart check and controlled AUTO gates
+remain outstanding.

@@ -62,11 +62,11 @@ For a controlled acceptance run, OpenAI model-usage data may be compared by time
 
 ### Manual selection
 
-The current lock registry is process-local and is populated by `session:patch`. Test a manual selection that exists before router/Gateway restart.
+The lock registry is only a process-local cache. Before every routing decision, the plugin reconciles the current session through OpenClaw 2026.9.6's authoritative `api.runtime.agent.session.getSessionEntry({ sessionKey, agentId, readConsistency: "latest" })` surface; `session:patch` is an immediate-update fast path. Test a manual selection that exists before router/Gateway restart, then issue a turn without changing the model.
 
-AUTO must not override an explicit persisted model selection merely because the router instance has restarted.
+AUTO must not override an explicit persisted model selection merely because the router instance has restarted. Returning the session to `/model default` (or the current equivalent) must produce a persisted entry with no active override, clear protection, and allow AUTO to resume. Exercise two session keys in parallel, then reset/delete one and recreate or reuse its identity; the other session's lock must remain isolated, and stale state must not suppress or authorize AUTO for the reset/deleted session.
 
-If authoritative state cannot be recovered, yield rather than guess.
+If the authoritative entry is missing, malformed, or internally ambiguous, remove any stale cache entry and yield rather than guess. A normal persisted entry with no override is a known default/automatic state and may resume AUTO.
 
 ## Gate C: minimal live shadow validation
 
