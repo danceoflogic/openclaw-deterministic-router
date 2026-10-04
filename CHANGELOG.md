@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Generate declarations with the TypeScript compiler instead of tsup's incompatible declaration bundler, supporting TypeScript 7 without changing the JavaScript bundle.
+
 ## [0.1.0] - 2026-09-25
 
 ### Added
