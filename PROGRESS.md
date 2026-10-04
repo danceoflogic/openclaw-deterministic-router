@@ -1,15 +1,14 @@
-# Current issue: #3 — manual model lock across restart and pre-existing session state
+# Current status: Issue #3 closed; implementation pending PR
 
 ## Status
 
-- Issue #2 is complete and PR #15 has been merged to `main`.
-- Current active work item: [Issue #3 — Verify and harden manual model lock across restart and pre-existing session state](https://github.com/danceoflogic/openclaw-deterministic-router/issues/3).
-- Gate B remains blocked on Issue #3.
-- Keep `shadow` as the default. Do not enable AUTO until Issue #3 passes.
-- Manual user model selection is authoritative.
-- If authoritative persisted model-selection state cannot be established after restart, fail closed rather than guessing.
-- Scope for Issue #3: restart/pre-existing selection, clearing back to default, two-session isolation, session reset/deletion, ambiguous or missing state, regression coverage, and `npm run check`.
-- Do not alter tier classification or model mappings.
+- [Issue #3 — manual model lock across restart and pre-existing session state](https://github.com/danceoflogic/openclaw-deterministic-router/issues/3) is closed on GitHub with code-level and isolated-runtime evidence.
+- The implementation is on `issue-3-manual-lock-restart` and has not been merged into `main`.
+- `npm run check` passed (typecheck, 33 tests, build); an isolated OpenClaw 2026.9.8 Gateway loaded the plugin and hooks and passed health/readiness checks.
+- A live interactive `/model`-then-Gateway-restart round-trip was **not completed**. The CLI attempt was treated as a prompt; no live manual-selection result is claimed.
+- Keep `shadow` as the repository default. AUTO remains disabled by default; controlled AUTO validation requires the remaining manual-selection and effective-model acceptance gates.
+- Manual user model selection remains authoritative. Missing or ambiguous persisted state must fail closed.
+- Do not alter tier classification or model mappings. Keep the archived persisted-read alternative separate from this branch.
 
 ## 2026-09-26 — implementation
 
