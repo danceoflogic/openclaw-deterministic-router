@@ -3,7 +3,7 @@ import { resolveTier } from "./policy.js";
 import type { RouteWorkDecision, RouteWorkInput, RouterPluginConfig } from "./types.js";
 
 export function routeWork(input: RouteWorkInput, config: RouterPluginConfig): RouteWorkDecision {
-  const classification = classifyLocally(input.prompt);
+  const classification = input.classification ?? classifyLocally(input.prompt);
   const attachmentCount = input.attachmentCount ?? 0;
   const effectiveTier = resolveTier(classification.tier, attachmentCount, config);
   const target = config.models[effectiveTier];

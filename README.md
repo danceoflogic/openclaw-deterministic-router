@@ -7,7 +7,7 @@ A local, deterministic and auditable model-routing plugin for OpenClaw.
 
 The project is designed for one job: **route each eligible OpenClaw turn to an explicitly configured model without spending an LLM call to decide which model should answer.**
 
-> **Project status:** experimental / shadow-first. `shadow` is the default mode. The current development and integration target is **OpenClaw 2026.9.6**. Automatic model overrides should only be enabled after the integration gates in the implementation plan pass on the target runtime.
+> **Project status:** experimental / shadow-first. `shadow` is the default mode. The current development and integration target is **OpenClaw 2026.9.8**. Automatic model overrides should only be enabled after the integration gates in the implementation plan pass on the target runtime.
 
 ## Why this exists
 
@@ -79,15 +79,15 @@ Apply `providerOverride` and `modelOverride` from `before_model_resolve`, subjec
 
 | OpenClaw version | Status |
 |---|---|
-| `2026.9.6` | Current development and integration target |
-| `< 2026.9.6` | Not supported by the current baseline |
-| `> 2026.9.6` | Re-run the hook compatibility gates before enabling `auto` |
+| `2026.9.8` | Current development target; Worktop shadow attachment behaviour verified |
+| `2026.9.6` | Historical baseline; retained as the declared minimum, not the current validation target |
+| Other versions | Re-run the hook compatibility gates before enabling `auto` |
 
-The package is compiled and tested against OpenClaw `2026.9.6`. The router deliberately treats host-version compatibility as an integration gate because model/session hook contracts can evolve independently of the deterministic classifier.
+The development dependency and build metadata target OpenClaw `2026.9.8`. The declared `>=2026.9.6 <2027` range is not a blanket claim that AUTO has passed on every release in that range; issue #12 tracks tightening it before release. The router deliberately treats host-version compatibility as an integration gate because model/session hook contracts can evolve independently of the deterministic classifier.
 
 ## Installation for development
 
-Prerequisites for the current OpenClaw 2026.9.6 target:
+Prerequisites for the current OpenClaw 2026.9.8 target:
 
 - Node.js `24.16.0+` on the Node 24 line (CI uses `24.19.0`)
 - npm `11.6.0` for reproducible CI dependency resolution
@@ -155,7 +155,7 @@ On the embedded model-call path, the router also records sanitized `model_call_s
 
 ## Important OpenClaw integration boundary
 
-`before_model_resolve` is the correct typed hook for deterministic provider/model override, but persisted per-session model state is not directly exposed as a dedicated field in that hook context. On OpenClaw 2026.9.6, the plugin reconciles the current session through the trusted `api.runtime.agent.session.getSessionEntry({ sessionKey, agentId, readConsistency: "latest" })` surface before every routing decision. The internal `session:patch` adapter remains a fast path; authoritative reconciliation also covers plugin/Gateway restart, session reset/deletion, recreated session keys, and model changes made before the router starts. Missing or ambiguous persisted state fails closed rather than reusing a stale process-local lock.
+`before_model_resolve` is the correct typed hook for deterministic provider/model override, but persisted per-session model state is not directly exposed as a dedicated field in that hook context. On the tested 2026.9.6 baseline and 2026.9.8 Worktop build, the plugin reconciles the current session through the trusted `api.runtime.agent.session.getSessionEntry({ sessionKey, agentId, readConsistency: "latest" })` surface before every routing decision. The internal `session:patch` adapter remains a fast path; authoritative reconciliation also covers plugin/Gateway restart, session reset/deletion, recreated session keys, and model changes made before the router starts. Missing or ambiguous persisted state fails closed rather than reusing a stale process-local lock.
 
 The implementation plan explicitly tests this before production `auto` mode.
 

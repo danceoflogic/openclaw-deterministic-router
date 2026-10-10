@@ -1,4 +1,14 @@
-# Acceptance and blocker context
+# Current blockers — 2026-10-11
+
+- OpenClaw 2026.9.8 is the current Worktop target. The declared compatibility range remains provisional pending issue #12; do not treat it as a claim of tested AUTO behaviour across every version.
+- Issue #3 code is merged, but its live manual-selection/restart acceptance remains unverified. Issue #6 passed a real document-upload shadow check, but its source branch is not merged and the issue remains open.
+- Keep AUTO disabled by default until manual-selection, effective-model, and subagent gates are met on the target runtime. See the acceptance protocol.
+
+---
+
+# Historical blocker notes
+
+## Acceptance and blocker context before Issue #3 merge
 
 ## Issue #3 — closed on GitHub; implementation pending PR
 

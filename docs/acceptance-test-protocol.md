@@ -1,6 +1,6 @@
 # Router acceptance test protocol
 
-This document is the canonical execution protocol for validating the deterministic router on OpenClaw 2026.9.6.
+This document is the canonical execution protocol for validating the deterministic router on OpenClaw 2026.9.8. Historical 2026.9.6 observations below remain labelled by version.
 
 Track progress in [issue #10](https://github.com/danceoflogic/openclaw-deterministic-router/issues/10).
 
@@ -99,7 +99,7 @@ Use the same known SIMPLE prompt once without an attachment and once with a tiny
 
 With default `minAttachmentTier=MEDIUM`, expect the attached turn to promote SIMPLE to MEDIUM. Also verify a stronger tier is never demoted.
 
-OpenClaw 2026.9.6 provides attachment metadata to `before_model_resolve`, so this is an integration test of the real event path.
+The pinned OpenClaw 2026.9.6 and live Worktop 2026.9.8 builds construct `before_model_resolve.attachments` from images only. For Gateway document uploads, Worktop stages non-image media facts on `reply_dispatch` before model resolution. The router correlates that event by run ID and session key, retains only attachment kinds/count and a classification of `BodyForCommands` (the original user text), and merges it with image metadata at `before_model_resolve`. This avoids classifying the media marker appended to the projected prompt. A plugin-level test checks this two-hook contract; the real Worktop 2026.9.8 Gateway document turn produced the expected shadow audit result. Keep the source-integration and issue-closure status separate from that behavioural result. Do not substitute a filename mentioned in text or an image-only test for the real document test.
 
 ## Gate D: bounded AUTO validation
 
@@ -177,7 +177,7 @@ For each issue:
 2. create a dedicated branch;
 3. make the smallest change or run the smallest test that satisfies the issue;
 4. run `npm run check`;
-5. run the OpenClaw 2026.9.6 runtime-loader smoke test when plugin registration changes;
+5. run the OpenClaw 2026.9.8 runtime-loader smoke test when plugin registration changes;
 6. keep generated `package-lock.json` uncommitted unless lockfile adoption is deliberate;
 7. open a focused PR;
 8. add concise evidence to the issue;
