@@ -2,9 +2,9 @@
 
 ## Phase 0 — Baseline
 
-- Target OpenClaw `2026.9.6` for the current integration baseline.
+- Target OpenClaw `2026.9.8` for current integration. Retain `2026.9.6` findings as historical baseline evidence.
 - Pin Router Core to `5ee7c23c993013a8052588191569db5cf7fb793c`.
-- Record the exact deployed OpenClaw version and verify it is `2026.9.6` before running the current compatibility suite.
+- Record the exact deployed OpenClaw version and verify it is `2026.9.8` before running the current compatibility suite.
 - Run deterministic golden fixtures repeatedly.
 - Confirm no routing-time network/LLM call occurs.
 

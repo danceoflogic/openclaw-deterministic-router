@@ -1,4 +1,16 @@
-# Current status: Issue #3 closed; implementation pending PR
+# Current status — 2026-10-11
+
+- The current development/integration target is OpenClaw 2026.9.8, matching the live Worktop runtime. The earlier 2026.9.6 observations below are historical evidence, not the current target.
+- Issue #3 implementation is merged into `main` (PR #19). A live interactive manual `/model`-then-restart acceptance remains unverified; do not infer it from unit tests or loader smoke.
+- Issue #6 has a real Worktop 2026.9.8 document-upload shadow result: the attachment floor promoted SIMPLE to MEDIUM. Its source is published on `issue-6-attachment-proof-20261010` but has not been merged; issue #6 remains open.
+- Keep `shadow` as the default. Controlled AUTO, subagent independence, and release compatibility remain open acceptance work (issues #7, #8, and #12).
+- This branch updates the version target and documentation. A green local check establishes build/test compatibility, not completion of the live AUTO gates.
+
+---
+
+# Historical progress notes
+
+## Status recorded before Issue #3 merge
 
 ## Status
 
