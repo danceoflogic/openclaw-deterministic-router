@@ -1,4 +1,5 @@
 import type { Tier } from "@blockrun/router-core";
+import type { LocalClassification } from "./classifier.js";
 
 export type RouterMode = "off" | "shadow" | "auto";
 export type RouterTier = Tier;
@@ -20,6 +21,7 @@ export type RouterPluginConfig = {
 export type RouteWorkInput = {
   prompt: string;
   attachmentCount?: number;
+  classification?: LocalClassification;
 };
 
 export type RouteWorkDecision = {

@@ -1,4 +1,5 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { InboundAttachmentRegistry, mergeAttachmentSummaries } from "./attachment-observation.js";
 import { parsePluginConfig } from "./config.js";
 import { onNativeModelCallDiagnostic } from "./native-diagnostics.js";
 import { routeWork } from "./route-work.js";
@@ -8,7 +9,10 @@ import {
   SessionLockRegistry,
   type SessionLockState,
 } from "./session-lock.js";
-import { makeAuditRecord, ModelCallCorrelationRegistry } from "./telemetry.js";
+import {
+  makeAuditRecord,
+  ModelCallCorrelationRegistry,
+} from "./telemetry.js";
 
 type SessionReaderApi = {
   runtime?: {
@@ -55,12 +59,6 @@ function reconcileCurrentSession(
   return locks.getState(sessionKey);
 }
 
-function attachmentCount(event: unknown): number {
-  if (typeof event !== "object" || event === null) return 0;
-  const attachments = (event as { attachments?: unknown }).attachments;
-  return Array.isArray(attachments) ? attachments.length : 0;
-}
-
 function getSessionPatchEvent(event: unknown): {
   sessionKey?: string;
   patch?: unknown;
@@ -90,6 +88,13 @@ export default definePluginEntry({
   register(api) {
     const locks = new SessionLockRegistry();
     const calls = new ModelCallCorrelationRegistry();
+    const inbound = new InboundAttachmentRegistry();
+
+    // Gateway document uploads are staged on ctx.media before model resolution.
+    // Keep only structural facts and a classification of the original user text.
+    api.on("reply_dispatch", (event) => {
+      inbound.observe(event);
+    });
 
     // Internal colon-style event. Kept separate from typed api.on hooks.
     api.registerHook(
@@ -113,10 +118,18 @@ export default definePluginEntry({
       const config = parsePluginConfig(api.pluginConfig);
       if (config.mode === "off") return;
 
+      const inboundObservation = inbound.consume(ctx.runId, ctx.sessionKey);
+      const attachmentSummary = mergeAttachmentSummaries(
+        event.attachments,
+        inboundObservation?.media,
+      );
       const decision = routeWork(
         {
           prompt: event.prompt,
-          attachmentCount: attachmentCount(event),
+          attachmentCount: attachmentSummary.attachmentCount,
+          ...(inboundObservation?.classification
+            ? { classification: inboundObservation.classification }
+            : {}),
         },
         config,
       );
@@ -152,6 +165,7 @@ export default definePluginEntry({
         sessionKey,
         agentId: ctx.agentId,
         runId: ctx.runId,
+        ...attachmentSummary,
         manualLock,
         applied,
         reason,
@@ -203,6 +217,7 @@ export default definePluginEntry({
         api.logger?.info?.(`[deterministic-router] ${JSON.stringify(observation)}`);
       }
       calls.completeRun(runId);
+      inbound.complete(runId);
     });
   },
 });

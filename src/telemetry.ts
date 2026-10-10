@@ -10,6 +10,8 @@ export type AuditRecord = {
   mode: RouterMode;
   classifierTier: string | null;
   effectiveTier: string;
+  attachmentCount: number;
+  attachmentKinds: AttachmentKind[];
   score: number;
   confidence: number;
   selectedProvider: string;
@@ -19,6 +21,8 @@ export type AuditRecord = {
   applied: boolean;
   reason: string;
 };
+
+export type AttachmentKind = "image" | "video" | "audio" | "document" | "other";
 
 type ModelCallEvent = {
   runId: string;
@@ -213,6 +217,8 @@ export function makeAuditRecord(params: {
   sessionKey?: string;
   agentId?: string;
   runId?: string;
+  attachmentCount: number;
+  attachmentKinds: AttachmentKind[];
   manualLock: boolean;
   applied: boolean;
   reason?: string;
@@ -226,6 +232,8 @@ export function makeAuditRecord(params: {
     mode: params.mode,
     classifierTier: params.decision.classifierTier,
     effectiveTier: params.decision.effectiveTier,
+    attachmentCount: params.attachmentCount,
+    attachmentKinds: params.attachmentKinds,
     score: params.decision.score,
     confidence: params.decision.confidence,
     selectedProvider: params.decision.target.provider,

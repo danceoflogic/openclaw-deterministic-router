@@ -15,6 +15,8 @@ function auditFor(runId: string, decisionId: string, provider: string, model: st
     mode: "auto",
     classifierTier: "SIMPLE",
     effectiveTier: "SIMPLE",
+    attachmentCount: 0,
+    attachmentKinds: [],
     score: 0,
     confidence: 1,
     selectedProvider: provider,
@@ -37,6 +39,8 @@ describe("model-call telemetry correlation", () => {
       decision,
       mode: "auto",
       runId: "run-1",
+      attachmentCount: 0,
+      attachmentKinds: [],
       manualLock: false,
       applied: true,
     });

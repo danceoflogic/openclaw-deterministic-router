@@ -99,7 +99,7 @@ Use the same known SIMPLE prompt once without an attachment and once with a tiny
 
 With default `minAttachmentTier=MEDIUM`, expect the attached turn to promote SIMPLE to MEDIUM. Also verify a stronger tier is never demoted.
 
-OpenClaw 2026.9.6 provides attachment metadata to `before_model_resolve`, so this is an integration test of the real event path.
+The pinned OpenClaw 2026.9.6 and live Worktop 2026.9.8 builds construct `before_model_resolve.attachments` from images only. For Gateway document uploads, Worktop stages non-image media facts on `reply_dispatch` before model resolution. The router correlates that event by run ID and session key, retains only attachment kinds/count and a classification of `BodyForCommands` (the original user text), and merges it with image metadata at `before_model_resolve`. This avoids classifying the media marker appended to the projected prompt. A plugin-level test checks this two-hook contract; **the issue is not accepted until a real Gateway document turn produces the expected audit result**. Do not substitute a filename mentioned in text or an image-only test for the real document test.
 
 ## Gate D: bounded AUTO validation
 
