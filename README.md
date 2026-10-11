@@ -1,7 +1,7 @@
 # OpenClaw Deterministic Router
 
 [![CI](https://github.com/danceoflogic/openclaw-deterministic-router/actions/workflows/ci.yml/badge.svg)](https://github.com/danceoflogic/openclaw-deterministic-router/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+**Licence: Proprietary / All rights reserved** ([terms](LICENSE))
 
 A local, deterministic and auditable model-routing plugin for OpenClaw.
 
@@ -85,7 +85,9 @@ Apply `providerOverride` and `modelOverride` from `before_model_resolve`, subjec
 
 The development dependency and build metadata target OpenClaw `2026.9.8`. The declared `>=2026.9.6 <2027` range is not a blanket claim that AUTO has passed on every release in that range; issue #12 tracks tightening it before release. The router deliberately treats host-version compatibility as an integration gate because model/session hook contracts can evolve independently of the deterministic classifier.
 
-## Installation for development
+## Installation for authorised development
+
+These instructions are intended for people with permission to work on this project; they do not grant a licence to use or redistribute its code.
 
 Prerequisites for the current OpenClaw 2026.9.8 target:
 
@@ -177,8 +179,12 @@ Native OpenClaw plugins run inside the Gateway process. Review plugin code befor
 
 ## Contributing
 
-Issues and focused pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+Issues are welcome. Please arrange contribution and licensing terms before submitting code or pull requests. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-This project is MIT licensed. Router Core remains separately copyrighted by BlockRun and MIT licensed. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+The original code in this project is **proprietary, with all rights reserved**. No general licence to copy, reuse, modify, distribute, or commercialise it is granted. GitHub's applicable terms and statutory exceptions still apply.
+
+**Existing MIT rights are not revoked:** versions previously released under MIT remain available under their applicable MIT terms. This notice cannot retroactively withdraw those permissions.
+
+Router Core remains separately copyrighted by BlockRun and MIT licensed. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
