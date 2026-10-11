@@ -1,8 +1,10 @@
 # Current blockers — 2026-10-11
 
-- OpenClaw 2026.9.8 is the current Worktop target. The declared compatibility range remains provisional pending issue #12; do not treat it as a claim of tested AUTO behaviour across every version.
-- Issue #3 code is merged, but its live manual-selection/restart acceptance remains unverified. Issue #6 passed a real document-upload shadow check, but its source branch is not merged and the issue remains open.
-- Keep AUTO disabled by default until manual-selection, effective-model, and subagent gates are met on the target runtime. See the acceptance protocol.
+- **Functional-beta gate:** #7 has not demonstrated live AUTO selected/effective-model agreement, manual override precedence (including a genuine interactive selection across restart), or the `shadow`/`off` rollback path on OpenClaw 2026.9.8.
+- **Subagent gate:** #8 has not demonstrated an independent child decision and effective model distinct from a stronger parent when the child's work is simpler.
+- **Release gate:** #9 performance/restart measurements and #12 compatibility/reproducibility policy remain open. The declared version range must not be read as tested AUTO support across all versions.
+- #6's real-document shadow result passed and its implementation is merged in PR #22; the GitHub issue remains open pending tracker reconciliation. It is not a code-merge blocker.
+- Keep AUTO disabled by default. Do not treat unit tests, loader smoke, or turn-scoped native telemetry as proof of live provider-call-level AUTO behaviour. See the acceptance protocol.
 
 ---
 

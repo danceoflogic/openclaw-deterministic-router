@@ -1,10 +1,12 @@
 # Current status — 2026-10-11
 
-- The current development/integration target is OpenClaw 2026.9.8, matching the live Worktop runtime. The earlier 2026.9.6 observations below are historical evidence, not the current target.
-- Issue #3 implementation is merged into `main` (PR #19). A live interactive manual `/model`-then-restart acceptance remains unverified; do not infer it from unit tests or loader smoke.
-- Issue #6 has a real Worktop 2026.9.8 document-upload shadow result: the attachment floor promoted SIMPLE to MEDIUM. Its source is published on `issue-6-attachment-proof-20261010` but has not been merged; issue #6 remains open.
-- Keep `shadow` as the default. Controlled AUTO, subagent independence, and release compatibility remain open acceptance work (issues #7, #8, and #12).
-- This branch updates the version target and documentation. A green local check establishes build/test compatibility, not completion of the live AUTO gates.
+- **Target:** OpenClaw 2026.9.8 on Worktop. OpenClaw 2026.9.6 results below are historical, not a claim of current AUTO compatibility.
+- **Implemented and merged:** deterministic classifier/policy matrix (#4), model identity telemetry with native-runtime limits (#2), persisted manual-selection reconciliation (#3), shadow acceptance (#5), and the real-document attachment-floor fix (#6, PR #22). CI passed on the merged 2026.9.8 target.
+- **Observed on Worktop:** in `shadow`, a real text document promoted SIMPLE to MEDIUM, while an attached REASONING turn stayed REASONING. The audit contained structural attachment metadata, not document content. This did not apply a model override.
+- **Still unverified:** a live interactive manual `/model` selection across Gateway restart; controlled AUTO selected/effective-model and manual-precedence checks (#7); independent subagent routing (#8). Keep `shadow` as the default.
+- **Beta gate:** complete #7 and #8 with evidence on the target runtime, restore `shadow` after bounded tests, and document any native turn-level observability limit. This is a functional beta, not a release claim.
+- **Release work after beta:** overhead/restart/telemetry measurements (#9), compatibility and dependency reproducibility policy (#12), and the remaining release-level acceptance checks in #10.
+- **Tracker hygiene:** #6 and #10 still need their GitHub issue text/status reconciled with the merged fix; an open issue does not mean the tested attachment behaviour is absent from `main`.
 
 ---
 

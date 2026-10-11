@@ -7,7 +7,7 @@ A local, deterministic and auditable model-routing plugin for OpenClaw.
 
 The project is designed for one job: **route each eligible OpenClaw turn to an explicitly configured model without spending an LLM call to decide which model should answer.**
 
-> **Project status:** experimental / shadow-first. `shadow` is the default mode. The current development and integration target is **OpenClaw 2026.9.8**. Automatic model overrides should only be enabled after the integration gates in the implementation plan pass on the target runtime.
+> **Project status (11 October 2026):** experimental / shadow-first. The development and integration target is **OpenClaw 2026.9.8**. The document attachment floor has passed a real Worktop shadow test and its fix is merged. Controlled AUTO and independent subagent routing are **not yet accepted**; `shadow` remains the default.
 
 ## Why this exists
 
@@ -158,6 +158,18 @@ On the embedded model-call path, the router also records sanitized `model_call_s
 `before_model_resolve` is the correct typed hook for deterministic provider/model override, but persisted per-session model state is not directly exposed as a dedicated field in that hook context. On the tested 2026.9.6 baseline and 2026.9.8 Worktop build, the plugin reconciles the current session through the trusted `api.runtime.agent.session.getSessionEntry({ sessionKey, agentId, readConsistency: "latest" })` surface before every routing decision. The internal `session:patch` adapter remains a fast path; authoritative reconciliation also covers plugin/Gateway restart, session reset/deletion, recreated session keys, and model changes made before the router starts. Missing or ambiguous persisted state fails closed rather than reusing a stale process-local lock.
 
 The implementation plan explicitly tests this before production `auto` mode.
+
+## Functional beta milestone
+
+A basic functional beta means the following have been demonstrated on the current OpenClaw target; it does **not** mean AUTO is the default or that a public release is ready:
+
+| Gate | Current evidence | Remaining work |
+|---|---|---|
+| Deterministic local policy and shadow integration | #2–#5 completed; real document attachment floor passed on Worktop and its fix merged in PR #22 | Reconcile the open #6 and #10 tracker text with that result |
+| Bounded ordinary-turn AUTO (#7) | Not yet accepted | Confirm selected/effective target, genuine manual selection across restart, return to default, and `shadow`/`off` rollback |
+| Independent child routing (#8) | Not yet accepted | Observe separate parent/child decisions and effective models; document the actual runtime granularity |
+
+After the bounded AUTO tests, restore `shadow`. Release readiness adds measured overhead/restart behaviour (#9), a defensible compatibility and dependency policy (#12), and the remaining [acceptance tracker](https://github.com/danceoflogic/openclaw-deterministic-router/issues/10) checks. See [current progress](PROGRESS.md) and [blockers](BLOCKERS.md) for the evidence boundaries.
 
 ## Development roadmap
 
