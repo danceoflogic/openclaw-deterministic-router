@@ -1,6 +1,21 @@
 import { classifyByRules, DEFAULT_ROUTING_CONFIG } from "@blockrun/router-core";
 import type { RouterTier } from "./types.js";
 
+/**
+ * Deliberate plugin-local experiment: widen the upper direct-COMPLEX band
+ * without changing pinned Router Core, other scoring parameters, or policy.
+ *
+ * This also moves the score-based REASONING boundary, so preserve the pinned
+ * two-marker reasoning override and review the resulting tier distribution.
+ */
+export const ROUTER_SCORING_CONFIG = {
+  ...DEFAULT_ROUTING_CONFIG.scoring,
+  tierBoundaries: {
+    ...DEFAULT_ROUTING_CONFIG.scoring.tierBoundaries,
+    complexReasoning: 0.53,
+  },
+};
+
 export type LocalClassification = {
   tier: RouterTier | null;
   score: number;
@@ -24,7 +39,7 @@ export function classifyLocally(prompt: string): LocalClassification {
     prompt,
     undefined,
     estimateTokens(prompt),
-    DEFAULT_ROUTING_CONFIG.scoring,
+    ROUTER_SCORING_CONFIG,
   );
 
   return {
