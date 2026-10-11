@@ -165,7 +165,7 @@ A basic functional beta means the following have been demonstrated on the curren
 
 | Gate | Current evidence | Remaining work |
 |---|---|---|
-| Deterministic local policy and shadow integration | #2–#5 completed; real document attachment floor passed on Worktop and its fix merged in PR #22 | Reconcile the open #6 and #10 tracker text with that result |
+| Deterministic local policy and shadow integration | #2–#5 completed; real document attachment floor passed on Worktop and its fix merged in PR #22 | #6 is closed; #10 now records the completed shadow gate |
 | Bounded ordinary-turn AUTO (#7) | Not yet accepted | Confirm selected/effective target, genuine manual selection across restart, return to default, and `shadow`/`off` rollback |
 | Independent child routing (#8) | Not yet accepted | Observe separate parent/child decisions and effective models; document the actual runtime granularity |
 

@@ -3,7 +3,7 @@
 - **Functional-beta gate:** #7 has not demonstrated live AUTO selected/effective-model agreement, manual override precedence (including a genuine interactive selection across restart), or the `shadow`/`off` rollback path on OpenClaw 2026.9.8.
 - **Subagent gate:** #8 has not demonstrated an independent child decision and effective model distinct from a stronger parent when the child's work is simpler.
 - **Release gate:** #9 performance/restart measurements and #12 compatibility/reproducibility policy remain open. The declared version range must not be read as tested AUTO support across all versions.
-- #6's real-document shadow result passed and its implementation is merged in PR #22; the GitHub issue remains open pending tracker reconciliation. It is not a code-merge blocker.
+- #6's real-document shadow result passed, its implementation is merged in PR #22, and the issue is closed. It is no longer a beta blocker.
 - Keep AUTO disabled by default. Do not treat unit tests, loader smoke, or turn-scoped native telemetry as proof of live provider-call-level AUTO behaviour. See the acceptance protocol.
 
 ---

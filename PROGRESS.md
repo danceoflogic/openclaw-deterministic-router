@@ -6,7 +6,7 @@
 - **Still unverified:** a live interactive manual `/model` selection across Gateway restart; controlled AUTO selected/effective-model and manual-precedence checks (#7); independent subagent routing (#8). Keep `shadow` as the default.
 - **Beta gate:** complete #7 and #8 with evidence on the target runtime, restore `shadow` after bounded tests, and document any native turn-level observability limit. This is a functional beta, not a release claim.
 - **Release work after beta:** overhead/restart/telemetry measurements (#9), compatibility and dependency reproducibility policy (#12), and the remaining release-level acceptance checks in #10.
-- **Tracker hygiene:** #6 and #10 still need their GitHub issue text/status reconciled with the merged fix; an open issue does not mean the tested attachment behaviour is absent from `main`.
+- **Tracker:** #6 is closed with the real-document evidence and merged PR #22; #10 marks the attachment shadow gate complete. The AUTO and subagent gates remain open.
 
 ---
 
