@@ -48,7 +48,7 @@
     "router"
   ],
   "author": "Chris Davison",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/danceoflogic/openclaw-deterministic-router.git"
