@@ -1,6 +1,8 @@
 # Contributing
 
-Thanks for helping improve the deterministic router.
+Thanks for your interest in the deterministic router.
+
+This project's original code is proprietary and all rights are reserved. Please discuss any proposed code contribution with the maintainer **before** submitting it. A contribution will only be accepted where the necessary copyright and licensing permissions have been agreed. See [LICENSE](LICENSE).
 
 ## Principles
 
