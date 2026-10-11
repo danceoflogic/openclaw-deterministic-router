@@ -42,6 +42,27 @@ The policy answers: **which configured model should serve that tier?**
 
 Changing provider economics should not require changing classifier weights. Conversely, tuning a classifier should not silently change provider configuration.
 
+## Experimental direct-COMPLEX calibration (#28)
+
+The pinned Router Core dependency defaults to `mediumComplex: 0.3`,
+`complexReasoning: 0.5`, `confidenceThreshold: 0.7`, and sigmoid steepness 12.
+Consequently, direct COMPLEX classification with the stock confidence gate
+occupies approximately scores 0.3706 through 0.4294; adjacent scores can
+return `tier: null` and reach COMPLEX through `ambiguousTier` instead.
+
+In the isolated experiment branch, `src/classifier.ts` passes a **plugin-local**
+scoring object overriding only `complexReasoning: 0.53`. The resulting direct
+COMPLEX interval extends to approximately **0.4594** without altering weights,
+the lower boundary, or the confidence threshold. The two-marker direct
+REASONING override still runs first. Nevertheless, score-based REASONING now
+begins later, so representative workloads must be evaluated before merging
+this change. The pinned upstream package is not modified.
+
+A local fixture verifies a prompt that is `null` under the pinned default but
+`COMPLEX` with this calibration. This is **not** live AUTO/effective-model
+evidence; #7 still needs a direct COMPLEX live run verified against the
+runtime-reported Terra identity. Keep `shadow` as the default.
+
 ## Ambiguity
 
 Router Core's rules classifier may return `tier: null` when confidence is below its threshold. This project does not call a second model to resolve ambiguity. Instead it uses the configured `ambiguousTier` deterministically. The default is `COMPLEX`, favouring capability over maximum savings.
