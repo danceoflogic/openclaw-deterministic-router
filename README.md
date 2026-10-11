@@ -1,7 +1,7 @@
 # OpenClaw Deterministic Router
 
 [![CI](https://github.com/danceoflogic/openclaw-deterministic-router/actions/workflows/ci.yml/badge.svg)](https://github.com/danceoflogic/openclaw-deterministic-router/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 A local, deterministic and auditable model-routing plugin for OpenClaw.
 
@@ -181,4 +181,8 @@ Issues and focused pull requests are welcome. Please read [CONTRIBUTING.md](CONT
 
 ## License
 
-This project is MIT licensed. Router Core remains separately copyrighted by BlockRun and MIT licensed. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+This project is licensed under the **Apache License, Version 2.0**, which allows reuse, modification, and commercial distribution subject to its conditions. When redistributing this software or qualifying derivative works, retain the relevant attribution from [NOTICE](NOTICE) as required by Apache-2.0 Section 4(d). This acknowledgement identifies the original developer, Chris Davison, and the [original project](https://github.com/danceoflogic/openclaw-deterministic-router). The licence does not require a credit on a product homepage or in advertisements.
+
+**Earlier MIT-licensed versions stay MIT-licensed.** This change does not revoke permissions previously granted under MIT.
+
+Router Core remains separately copyrighted by BlockRun and MIT licensed. See [LICENSE](LICENSE), [NOTICE](NOTICE), and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

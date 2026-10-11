@@ -2,6 +2,8 @@
 
 Thanks for helping improve the deterministic router.
 
+Project code is licensed under the Apache License, Version 2.0. Please submit only contributions that you have the rights to license under those terms. See [LICENSE](LICENSE), including Section 5 on contributions.
+
 ## Principles
 
 1. Routing decisions should remain locally reproducible.
