@@ -114,7 +114,9 @@ AUTO is a test condition, not the repository default.
 
 ### Ordinary turns
 
-Use the smallest set of known prompts needed to exercise configured target providers/models.
+For issue #7 on Worktop, use the smallest set of known prompts needed to exercise the accessible OpenAI targets (MEDIUM/Luna, COMPLEX/Terra, and REASONING/Sol). Do **not** run a live Telnyx/MiniMax AUTO test for the default SIMPLE target: Chris does not have access to that route, and exercising it is unnecessary for the bounded AUTO, manual-precedence, and kill-switch checks. Do not provision Telnyx credentials or block this scoped test solely to obtain them.
+
+This is a scope exclusion, **not** a pass for Telnyx/SIMPLE AUTO routing. Record the exclusion in issue #7's results and do not claim that every default target has been live-verified. Keep the zero-inference SIMPLE classification and tier-mapping tests; the exclusion concerns live Telnyx calls only. Before any AUTO run, ensure each target actually exercised has a known-good provider route and choose probes that cannot unintentionally select the excluded target.
 
 For every AUTO-applied turn verify:
 
