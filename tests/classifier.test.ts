@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { classifyLocally, estimateTokens } from "../src/classifier.js";
+import { classifyByRules, DEFAULT_ROUTING_CONFIG } from "@blockrun/router-core";
+import { classifyLocally, estimateTokens, ROUTER_SCORING_CONFIG } from "../src/classifier.js";
 import { DEFAULT_PLUGIN_CONFIG } from "../src/config.js";
 import { routeWork } from "../src/route-work.js";
 import type { RouterTier } from "../src/types.js";
@@ -36,6 +37,36 @@ describe("deterministic classifier acceptance matrix", () => {
       expect(decision.effectiveTier, fixture.id).toBe(fixture.expectedEffectiveTier);
       expect(decision.target, fixture.id).toEqual(DEFAULT_PLUGIN_CONFIG.models[decision.effectiveTier]);
     }
+  });
+
+  it("widens direct COMPLEX at the upper edge without changing the pinned dependency", () => {
+    const fixture = fixtures.find((item) => item.id === "complex-upper-boundary-readonly");
+    if (!fixture) throw new Error("missing upper-boundary acceptance fixture");
+    const prompt = promptFor(fixture);
+
+    // Under the unchanged, pinned upstream defaults this prompt is ambiguous.
+    const upstream = classifyByRules(
+      prompt,
+      undefined,
+      estimateTokens(prompt),
+      DEFAULT_ROUTING_CONFIG.scoring,
+    );
+    expect(DEFAULT_ROUTING_CONFIG.scoring.tierBoundaries.complexReasoning).toBe(0.5);
+    expect(ROUTER_SCORING_CONFIG.tierBoundaries.complexReasoning).toBe(0.53);
+    expect(upstream.tier).toBeNull();
+
+    // The plugin-local boundary widens direct classification, not the score.
+    const local = classifyLocally(prompt);
+    expect(local.score).toBe(upstream.score);
+    expect(local.tier).toBe("COMPLEX");
+    expect(local.confidence).toBeGreaterThanOrEqual(
+      DEFAULT_ROUTING_CONFIG.scoring.confidenceThreshold,
+    );
+
+    const decision = routeWork({ prompt, attachmentCount: 0 }, DEFAULT_PLUGIN_CONFIG);
+    expect(decision.classifierTier).toBe("COMPLEX");
+    expect(decision.effectiveTier).toBe("COMPLEX");
+    expect(decision.reason).toBe("classifier=COMPLEX");
   });
 
   it("uses a configured non-default fallback for ambiguous classifier results", () => {
