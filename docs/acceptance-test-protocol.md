@@ -77,6 +77,8 @@ Issues:
 
 Keep `mode=shadow`.
 
+**Current evidence (2026-10-11):** #5 is closed. The real Worktop 2026.9.8 document matrix for #6 passed after the two-hook fix: SIMPLE with a document was promoted to MEDIUM, attached REASONING was not demoted, and telemetry contained structural metadata only. The fix was merged in PR #22; #6 remains open for issue/tracker reconciliation. This shadow result does not establish AUTO application or provider-call identity.
+
 Use one known fixture prompt per effective tier. Do not repeat prompts live to prove determinism; Gate A already owns that property.
 
 For each live turn record:
