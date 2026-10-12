@@ -195,12 +195,27 @@ export default definePluginEntry({
     // Native Codex app-server emits trusted model.call.* diagnostics at turn
     // scope. Keep these separate from embedded provider-call hooks: one turn
     // may contain hidden provider requests, retries, or tool work.
-    onNativeModelCallDiagnostic((event) => {
-      const telemetry = event.type === "model.call.started"
-        ? calls.recordNativeModelCallStarted(event)
-        : calls.recordNativeModelCallEnded(event);
-      api.logger?.info?.(`[deterministic-router] ${JSON.stringify(telemetry)}`);
-    });
+    // Native subscriptions are not automatically retired with typed hooks.
+    // Never attach one without an owner that can release it on replacement.
+    if (api.lifecycle?.onDispose) {
+      const unsubscribe = onNativeModelCallDiagnostic((event) => {
+        const telemetry = event.type === "model.call.started"
+          ? calls.recordNativeModelCallStarted(event)
+          : calls.recordNativeModelCallEnded(event);
+        api.logger?.info?.(`[deterministic-router] ${JSON.stringify(telemetry)}`);
+      });
+      try {
+        api.lifecycle.onDispose(unsubscribe);
+      } catch (error) {
+        // A rejected cleanup registration must not strand a process listener.
+        unsubscribe();
+        throw error;
+      }
+    } else {
+      api.logger?.warn?.(
+        "[deterministic-router] native turn diagnostics disabled: managed disposal unavailable; agent_end runtime-model observation remains available",
+      );
+    }
 
     // OpenClaw emits this as the final event for a run. It is the authoritative
     // cleanup point; the registry also has a bounded stale/inactive backstop.
