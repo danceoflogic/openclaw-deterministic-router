@@ -1,4 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import {
+  emitTrustedDiagnosticEvent,
+  waitForDiagnosticEventsDrained,
+} from "openclaw/plugin-sdk/diagnostic-runtime";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import plugin from "../src/index.js";
 
 type InternalHookOptions = {
@@ -7,6 +11,172 @@ type InternalHookOptions = {
 };
 
 describe("plugin registration contract", () => {
+  const disposals: Array<() => void> = [];
+
+  afterEach(async () => {
+    for (const dispose of disposals.splice(0)) dispose();
+    await waitForDiagnosticEventsDrained();
+  });
+
+  function managedRegistration() {
+    const cleanups: Array<() => void> = [];
+    const onDispose = vi.fn((cleanup: () => void) => {
+      cleanups.push(cleanup);
+      return () => {};
+    });
+    const on = vi.fn();
+    const info = vi.fn();
+    const api = {
+      pluginConfig: { mode: "shadow" },
+      lifecycle: { onDispose },
+      registerHook: vi.fn(),
+      on,
+      runtime: { agent: { session: { getSessionEntry: vi.fn(() => ({ sessionId: "native-session" })) } } },
+      logger: { info, warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    };
+    plugin.register(api as never);
+    const dispose = () => { for (const cleanup of cleanups) cleanup(); };
+    disposals.push(dispose);
+    const resolve = on.mock.calls.find(([name]) => name === "before_model_resolve")?.[1] as
+      (event: { prompt: string }, ctx: { sessionKey: string; runId: string; agentId: string }) => unknown;
+    const observe = (runId: string) => {
+      resolve({ prompt: "Hello" }, { sessionKey: "native-session", runId, agentId: "agent" });
+      emitNativePair(runId);
+    };
+    const observations = () => info.mock.calls.map(([message]) =>
+      JSON.parse(String(message).slice("[deterministic-router] ".length)),
+    ).filter((record) => record.source === "diagnostic_model_call");
+    return { onDispose, info, dispose, observe, observations };
+  }
+
+  function emitNativePair(runId: string) {
+    const identity = {
+      runId,
+      callId: `${runId}:codex-model:1`,
+      provider: "openai",
+      model: "gpt-5.6-terra",
+      observationUnit: "turn" as const,
+    };
+    emitTrustedDiagnosticEvent({ type: "model.call.started", ...identity });
+    emitTrustedDiagnosticEvent({ type: "model.call.completed", ...identity, durationMs: 1 });
+  }
+
+  it("registers a managed native listener and correlates exactly one start/end pair", async () => {
+    const instance = managedRegistration();
+    expect(instance.onDispose).toHaveBeenCalledTimes(1);
+    instance.observe("managed-run");
+    await waitForDiagnosticEventsDrained();
+    const records = instance.observations();
+    expect(records).toHaveLength(2);
+    expect(records.map((record) => record.phase)).toEqual(["started", "ended"]);
+    for (const record of records) {
+      expect(record).toMatchObject({ runId: "managed-run", verificationLevel: "runtime-model", resolvedModel: "gpt-5.6-terra" });
+      expect(record.decisionId).toEqual(expect.any(String));
+    }
+    expect(records[0].decisionId).toBe(records[1].decisionId);
+  });
+
+  it("disposes future diagnostics and tolerates repeated cleanup", async () => {
+    const instance = managedRegistration();
+    instance.observe("before-disposal");
+    await waitForDiagnosticEventsDrained();
+    const before = instance.info.mock.calls.length;
+    instance.dispose();
+    instance.dispose();
+    emitNativePair("after-disposal");
+    await waitForDiagnosticEventsDrained();
+    expect(instance.info).toHaveBeenCalledTimes(before);
+  });
+
+  it("replaces registrations repeatedly without duplicate active observations", async () => {
+    const retired = [];
+    for (let i = 0; i < 3; i += 1) {
+      const instance = managedRegistration();
+      instance.observe(`retired-${i}`);
+      await waitForDiagnosticEventsDrained();
+      expect(instance.observations()).toHaveLength(2);
+      instance.dispose();
+      instance.dispose();
+      retired.push(instance);
+    }
+    const replacement = managedRegistration();
+    replacement.observe("replacement-run");
+    await waitForDiagnosticEventsDrained();
+    expect(replacement.observations()).toHaveLength(2);
+    for (const instance of retired) expect(instance.observations()).toHaveLength(2);
+  });
+
+  it("does not attach an unmanaged native listener and retains agent-end observations", async () => {
+    const on = vi.fn();
+    const info = vi.fn();
+    const warn = vi.fn();
+    plugin.register({
+      pluginConfig: { mode: "shadow" }, registerHook: vi.fn(), on,
+      logger: { info, warn, error: vi.fn(), debug: vi.fn() },
+    } as never);
+    emitNativePair("unmanaged-run");
+    await waitForDiagnosticEventsDrained();
+    expect(info).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("managed disposal unavailable"));
+    const end = on.mock.calls.find(([name]) => name === "agent_end")?.[1] as
+      (event: { runId: string }, ctx: { modelProviderId: string; modelId: string }) => void;
+    end({ runId: "unmanaged-run" }, { modelProviderId: "openai", modelId: "gpt-5.6-terra" });
+    expect(JSON.parse(info.mock.calls[0]![0].slice("[deterministic-router] ".length))).toMatchObject({
+      source: "agent_end_context", verificationLevel: "runtime-model", resolvedModel: "gpt-5.6-terra",
+    });
+  });
+
+  it("releases the native listener if managed cleanup registration rejects", async () => {
+    const info = vi.fn();
+    expect(() => plugin.register({
+      pluginConfig: { mode: "shadow" }, registerHook: vi.fn(), on: vi.fn(),
+      lifecycle: { onDispose: () => { throw new Error("instance disposed"); } },
+      logger: { info, warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    } as never)).toThrow("instance disposed");
+    emitNativePair("rejected-registration");
+    await waitForDiagnosticEventsDrained();
+    expect(info).not.toHaveBeenCalled();
+  });
+
+  it("uses exact agent-scoped latest reads and keeps a reset user selection locked", () => {
+    const on = vi.fn();
+    const info = vi.fn();
+    let entry = {
+      sessionId: "retained-session", lifecycleRevision: "before-reset",
+      providerOverride: "openai", modelOverride: "gpt-5.6-terra", modelOverrideSource: "user",
+    };
+    const getSessionEntry = vi.fn(({ agentId, sessionKey, readConsistency }: {
+      agentId?: string; sessionKey: string; readConsistency?: "latest";
+    }) => {
+      expect(sessionKey).toBe("shared-key");
+      expect(readConsistency).toBe("latest");
+      if (agentId === "locked-agent") return entry;
+      if (agentId === "default-agent") return { sessionId: "default-session" };
+      throw new Error("unexpected agent scope");
+    });
+    plugin.register({
+      pluginConfig: { mode: "auto" }, registerHook: vi.fn(), on,
+      runtime: { agent: { session: { getSessionEntry } } },
+      logger: { info, warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    } as never);
+    const resolve = on.mock.calls.find(([name]) => name === "before_model_resolve")?.[1] as
+      (event: { prompt: string }, ctx: { sessionKey: string; runId: string; agentId: string }) => unknown;
+    const probe = (agentId: string, runId: string) => resolve({ prompt: "Hello" }, { sessionKey: "shared-key", runId, agentId });
+    expect(probe("locked-agent", "before-reset")).toBeUndefined();
+    expect(probe("default-agent", "independent-default")).toMatchObject({ modelOverride: expect.any(String) });
+    entry = { ...entry, lifecycleRevision: "after-reset" };
+    expect(probe("locked-agent", "after-reset")).toBeUndefined();
+    expect(getSessionEntry.mock.calls.map(([params]) => params)).toEqual([
+      { agentId: "locked-agent", sessionKey: "shared-key", readConsistency: "latest" },
+      { agentId: "default-agent", sessionKey: "shared-key", readConsistency: "latest" },
+      { agentId: "locked-agent", sessionKey: "shared-key", readConsistency: "latest" },
+    ]);
+    const audits = info.mock.calls.map(([message]) => JSON.parse(message.slice("[deterministic-router] ".length)));
+    expect(audits.map(({ manualLock, applied }) => ({ manualLock, applied }))).toEqual([
+      { manualLock: true, applied: false }, { manualLock: false, applied: true }, { manualLock: true, applied: false },
+    ]);
+  });
+
   it("registers the internal session patch hook and typed telemetry observers", () => {
     const registerHook = vi.fn(
       (

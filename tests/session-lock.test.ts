@@ -118,6 +118,22 @@ describe("session model-selection lock registry", () => {
     expect(registry.get("s1")).toBeUndefined();
   });
 
+  it("retains a user-selected model when reset preserves the UUID and rotates its lifecycle revision", () => {
+    const registry = new SessionLockRegistry();
+    const selection = {
+      sessionId: "retained-session", lifecycleRevision: "before-reset",
+      providerOverride: "openai", modelOverride: "gpt-5.6-terra", modelOverrideSource: "user",
+    };
+    reconcilePersistedSessionEntry(registry, "retained-key", selection);
+    expect(reconcilePersistedSessionEntry(registry, "retained-key", {
+      ...selection, lifecycleRevision: "after-reset",
+    })).toBe("set");
+    expect(registry.getState("retained-key")).toBe("locked");
+    expect(registry.get("retained-key")).toMatchObject({
+      sessionId: "retained-session", provider: "openai", model: "gpt-5.6-terra",
+    });
+  });
+
   it("supports patch-only runtimes as a conservative compatibility fallback", () => {
     const registry = new SessionLockRegistry();
     expect(
