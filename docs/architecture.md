@@ -55,3 +55,7 @@ This is intentionally isolated in `src/session-lock.ts` because it is the integr
 ## Telemetry privacy
 
 Normal audit records contain no raw prompt. Session keys are hashed. Classifier signals and scores can be logged without retaining conversation content.
+
+## Architecture evolution (ADR 0002)
+
+[ADR 0002: Routing boundaries and evaluation](decisions/0002-routing-boundaries-and-evaluation.md) records the **future design contract** for initial routing versus execution fallbacks, capability/authority checks versus workload suitability, optional agent-specific policies, and separately evidenced classification, application, runtime identity and answer quality. These are implementation directions, **not already-implemented components** in the diagram above. AUTO and independent subagent routing remain subject to their existing acceptance gates.
