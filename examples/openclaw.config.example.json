@@ -11,6 +11,7 @@
           "ambiguousTier": "COMPLEX",
           "protectManualSelection": true,
           "requireSessionKeyForAuto": true,
+          "autoSessionKeyHashes": [],
           "minAttachmentTier": "MEDIUM",
           "models": {
             "SIMPLE": {

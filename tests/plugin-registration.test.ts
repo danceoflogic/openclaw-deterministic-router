@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   emitTrustedDiagnosticEvent,
   waitForDiagnosticEventsDrained,
@@ -155,7 +156,10 @@ describe("plugin registration contract", () => {
       throw new Error("unexpected agent scope");
     });
     plugin.register({
-      pluginConfig: { mode: "auto" }, registerHook: vi.fn(), on,
+      pluginConfig: {
+        mode: "auto",
+        autoSessionKeyHashes: [createHash("sha256").update("shared-key", "utf8").digest("hex")],
+      }, registerHook: vi.fn(), on,
       runtime: { agent: { session: { getSessionEntry } } },
       logger: { info, warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
     } as never);
@@ -177,6 +181,68 @@ describe("plugin registration contract", () => {
     ]);
   });
 
+  it("reports the captured registration identity and mode when a replacement registers", () => {
+    const readStatus = (pluginConfig: Record<string, unknown>) => {
+      const registerGatewayMethod = vi.fn();
+      plugin.register({
+        pluginConfig,
+        registerGatewayMethod,
+        registerHook: vi.fn(),
+        on: vi.fn(),
+      } as never);
+
+      const handler = registerGatewayMethod.mock.calls[0]?.[1] as (params: {
+        respond: (ok: boolean, payload?: unknown, error?: unknown) => void;
+      }) => void;
+      const respond = vi.fn();
+      handler({ respond });
+      return respond.mock.calls[0]?.[1] as Record<string, unknown>;
+    };
+
+    const shadow = readStatus({ mode: "shadow" });
+    const replacement = readStatus({
+      mode: "auto",
+      protectManualSelection: false,
+      requireSessionKeyForAuto: false,
+      autoSessionKeyHashes: ["a".repeat(64)],
+    });
+
+    expect(shadow).toMatchObject({ status: "available", mode: "shadow" });
+    expect(replacement).toMatchObject({
+      status: "available",
+      pluginId: "deterministic-router",
+      mode: "auto",
+      protectManualSelection: false,
+      requireSessionKeyForAuto: false,
+      autoSessionAllowlistCount: 1,
+    });
+    expect(replacement.registrationId).not.toBe(shadow.registrationId);
+  });
+
+  it("reports unknown effective state instead of inventing a mode without plugin config", () => {
+    const registerGatewayMethod = vi.fn();
+    plugin.register({
+      pluginConfig: undefined,
+      registerGatewayMethod,
+      registerHook: vi.fn(),
+      on: vi.fn(),
+    } as never);
+
+    const handler = registerGatewayMethod.mock.calls[0]?.[1] as (params: {
+      respond: (ok: boolean, payload?: unknown, error?: unknown) => void;
+    }) => void;
+    const respond = vi.fn();
+    handler({ respond });
+    expect(respond).toHaveBeenCalledWith(true, expect.objectContaining({
+      status: "unknown",
+      mode: null,
+      effectiveMode: null,
+      protectManualSelection: null,
+      requireSessionKeyForAuto: null,
+      autoSessionAllowlistCount: null,
+    }), undefined);
+  });
+
   it("registers the internal session patch hook and typed telemetry observers", () => {
     const registerHook = vi.fn(
       (
@@ -193,10 +259,13 @@ describe("plugin registration contract", () => {
     );
 
     const on = vi.fn();
+    const registerGatewayMethod = vi.fn();
 
+    const pluginConfig = Object.freeze({ mode: "shadow" });
     const api = {
-      pluginConfig: { mode: "shadow" },
+      pluginConfig,
       registerHook,
+      registerGatewayMethod,
       on,
       runtime: {
         agent: {
@@ -216,6 +285,26 @@ describe("plugin registration contract", () => {
     expect(() => plugin.register(api as never)).not.toThrow();
 
     expect(registerHook).toHaveBeenCalledTimes(1);
+    expect(registerGatewayMethod).toHaveBeenCalledWith(
+      "deterministic-router.status",
+      expect.any(Function),
+      { scope: "operator.read" },
+    );
+    const statusHandler = registerGatewayMethod.mock.calls[0]?.[1] as (params: {
+      respond: (ok: boolean, payload?: unknown, error?: unknown) => void;
+    }) => void;
+    const respond = vi.fn();
+    statusHandler({ respond });
+    expect(respond).toHaveBeenCalledWith(true, expect.objectContaining({
+      status: "available",
+      pluginId: "deterministic-router",
+      mode: "shadow",
+      protectManualSelection: true,
+      requireSessionKeyForAuto: true,
+      autoSessionAllowlistCount: 0,
+      registrationId: expect.any(String),
+    }), undefined);
+    expect(pluginConfig).toEqual({ mode: "shadow" });
     expect(registerHook).toHaveBeenCalledWith(
       "session:patch",
       expect.any(Function),
@@ -461,7 +550,10 @@ describe("plugin registration contract", () => {
     };
     const getSessionEntry = vi.fn(({ sessionKey }: { sessionKey: string }) => entries[sessionKey]);
     const api = {
-      pluginConfig: { mode: "auto" },
+      pluginConfig: {
+        mode: "auto",
+        autoSessionKeyHashes: [createHash("sha256").update("automatic").digest("hex")],
+      },
       registerHook,
       on,
       runtime: {
@@ -522,6 +614,118 @@ describe("plugin registration contract", () => {
         applied: true,
       }),
     ]));
+  });
+
+  it("fails closed for every session not explicitly allowlisted for AUTO", () => {
+    const on = vi.fn();
+    const info = vi.fn();
+    const allowedKey = "only-this-session";
+    const api = {
+      pluginConfig: {
+        mode: "auto",
+        autoSessionKeyHashes: [createHash("sha256").update(allowedKey).digest("hex")],
+      },
+      registerHook: vi.fn(),
+      on,
+      runtime: { agent: { session: { getSessionEntry: vi.fn(() => ({ sessionId: "row" })) } } },
+      logger: { info, warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    };
+    plugin.register(api as never);
+
+    const beforeModelResolve = on.mock.calls.find(([name]) => name === "before_model_resolve")?.[1] as
+      (event: { prompt: string }, ctx: { sessionKey: string; runId: string; agentId: string }) => unknown;
+    expect(beforeModelResolve(
+      { prompt: "Summarize this short note." },
+      { sessionKey: allowedKey, runId: "allowed-run", agentId: "test-agent" },
+    )).toMatchObject({ providerOverride: expect.any(String), modelOverride: expect.any(String) });
+    expect(beforeModelResolve(
+      { prompt: "Summarize this short note." },
+      { sessionKey: "same-agent-unrelated-session", runId: "unrelated-run", agentId: "test-agent" },
+    )).toBeUndefined();
+
+    const audit = info.mock.calls
+      .map(([message]) => typeof message === "string" ? message : undefined)
+      .find((message): message is string => message !== undefined && message.includes('"runId":"unrelated-run"'));
+    expect(audit).toBeDefined();
+    expect(audit).not.toContain("same-agent-unrelated-session");
+    expect(JSON.parse(audit!.slice("[deterministic-router] ".length))).toMatchObject({
+      mode: "auto",
+      applied: false,
+      reason: "session is not allowlisted for AUTO; fail-closed without override",
+    });
+  });
+
+  it("keeps AUTO inert with an empty allowlist even for a valid session", () => {
+    const on = vi.fn();
+    const info = vi.fn();
+    const api = {
+      pluginConfig: { mode: "auto", autoSessionKeyHashes: [] },
+      registerHook: vi.fn(),
+      on,
+      runtime: { agent: { session: { getSessionEntry: vi.fn(() => ({ sessionId: "known-clear" })) } } },
+      logger: { info, warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    };
+    plugin.register(api as never);
+
+    const beforeModelResolve = on.mock.calls.find(([name]) => name === "before_model_resolve")?.[1] as
+      (event: { prompt: string }, ctx: { sessionKey: string; runId: string; agentId: string }) => unknown;
+    expect(beforeModelResolve(
+      { prompt: "Summarize this short note." },
+      { sessionKey: "empty-list-session", runId: "empty-list-run", agentId: "test-agent" },
+    )).toBeUndefined();
+
+    const audit = info.mock.calls
+      .map(([message]) => typeof message === "string" ? message : undefined)
+      .find((message): message is string => message !== undefined && message.includes('"runId":"empty-list-run"'));
+    expect(audit).toBeDefined();
+    expect(JSON.parse(audit!.slice("[deterministic-router] ".length))).toMatchObject({
+      mode: "auto",
+      manualLock: false,
+      applied: false,
+      reason: "session is not allowlisted for AUTO; fail-closed without override",
+    });
+  });
+
+  it("fails closed when a configured AUTO allowlist contains any invalid digest", () => {
+    const on = vi.fn();
+    const validDigest = createHash("sha256").update("listed-session").digest("hex");
+    const api = {
+      pluginConfig: { mode: "auto", autoSessionKeyHashes: [validDigest, "not-a-digest"] },
+      registerHook: vi.fn(),
+      on,
+      runtime: { agent: { session: { getSessionEntry: vi.fn(() => ({ sessionId: "known-clear" })) } } },
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    };
+    plugin.register(api as never);
+
+    const beforeModelResolve = on.mock.calls.find(([name]) => name === "before_model_resolve")?.[1] as
+      (event: { prompt: string }, ctx: { sessionKey: string; runId: string; agentId: string }) => unknown;
+    expect(beforeModelResolve(
+      { prompt: "Summarize this short note." },
+      { sessionKey: "listed-session", runId: "invalid-list-run", agentId: "test-agent" },
+    )).toBeUndefined();
+  });
+
+  it("does not resolve session state or route when mode is off", () => {
+    const on = vi.fn();
+    const getSessionEntry = vi.fn(() => ({ sessionId: "known-clear" }));
+    const info = vi.fn();
+    plugin.register({
+      pluginConfig: { mode: "off", autoSessionKeyHashes: ["a".repeat(64)] },
+      registerHook: vi.fn(),
+      on,
+      runtime: { agent: { session: { getSessionEntry } } },
+      logger: { info, warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    } as never);
+
+    const beforeModelResolve = on.mock.calls.find(([name]) => name === "before_model_resolve")?.[1] as
+      (event: { prompt: string }, ctx: { sessionKey: string; runId: string; agentId: string }) => unknown;
+    expect(beforeModelResolve(
+      { prompt: "Summarize this short note." },
+      { sessionKey: "off-session", runId: "off-run", agentId: "test-agent" },
+    )).toBeUndefined();
+    expect(getSessionEntry).not.toHaveBeenCalled();
+    expect(info).not.toHaveBeenCalled();
   });
 
   it("fails closed and drops a stale lock when the authoritative session entry disappears", () => {

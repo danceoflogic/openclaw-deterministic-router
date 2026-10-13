@@ -73,6 +73,7 @@ jobs:
 
           for (const required of [
             "deterministic-router-session-patch",
+            "deterministic-router.status",
             "before_model_resolve",
             "model_call_started",
             "model_call_ended",
