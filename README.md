@@ -47,6 +47,8 @@ Every target is configurable.
 - **Policy separate from classification.** Model mappings can change without changing classifier logic.
 - **Reproducible provenance.** The classifier dependency is pinned to an immutable upstream commit.
 
+Architectural direction and implementation boundaries are recorded in [ADR 0002: Routing authority, eligibility, fallback and evaluation](docs/decisions/0002-routing-boundaries-and-evaluation.md). This is a future design contract, **not** a claim that AUTO or multi-agent routing has passed acceptance.
+
 ## Router Core provenance
 
 Classification uses the rule-based classifier from [`@blockrun/router-core`](https://github.com/BlockRunAI/router-core), pinned to:
