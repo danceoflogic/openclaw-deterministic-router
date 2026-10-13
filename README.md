@@ -183,6 +183,10 @@ After the bounded AUTO tests, restore `shadow`. Release readiness adds measured 
 
 See [`docs/implementation-plan.md`](docs/implementation-plan.md) and the executable [`router acceptance test protocol`](docs/acceptance-test-protocol.md).
 
+## Comparative research
+
+The [comparative model-router research (13 October 2026)](docs/openclaw-router-comparative-research-2026-10-13.md) reviews related projects and research, including classification ambiguity, capability-aware selection, host fallback behavior, session safety, and an offline evaluation plan. It is a **research note**, not implementation approval or evidence that AUTO is ready.
+
 ## Security
 
 Native OpenClaw plugins run inside the Gateway process. Review plugin code before installation and do not place credentials in this repository or its config examples. See [SECURITY.md](SECURITY.md).
