@@ -1,4 +1,6 @@
-# Current blockers — 2026-10-11
+# Current blockers — 2026-10-13
+
+- **Issue #7 immediate blocker:** an existing scoped-status preparation report could not be recovered after a worker-continuation relay failure. Restricted live status allow/deny has not run. The R2 shadow deployment passed its recorded gate, but does not resolve runtime acceptance. See the [dated progress record](docs/issue-7-progress-2026-10-13.md).
 
 - **Functional-beta gate:** #7 has not demonstrated live AUTO selected/effective-model agreement, manual override precedence (including a genuine interactive selection across restart), or the `shadow`/`off` rollback path on OpenClaw 2026.9.8.
 - **Subagent gate:** #8 has not demonstrated an independent child decision and effective model distinct from a stronger parent when the child's work is simpler.

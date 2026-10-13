@@ -1,4 +1,6 @@
-# Current status — 2026-10-11
+# Current status — 2026-10-13
+
+- **Issue #7 update:** the reviewed local candidate passed its recorded R2 shadow deployment gate on 13 October. Restricted authenticated status allow/deny, live AUTO/A-B and lifecycle acceptance remain incomplete. The candidate is not merged by this documentation update. See the [engineering and deployment record](docs/issue-7-progress-2026-10-13.md).
 
 - **Target:** OpenClaw 2026.9.8 on Worktop. OpenClaw 2026.9.6 results below are historical, not a claim of current AUTO compatibility.
 - **Implemented and merged:** deterministic classifier/policy matrix (#4), model identity telemetry with native-runtime limits (#2), persisted manual-selection reconciliation (#3), shadow acceptance (#5), and the real-document attachment-floor fix (#6, PR #22). CI passed on the merged 2026.9.8 target.

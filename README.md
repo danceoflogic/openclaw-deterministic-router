@@ -7,7 +7,9 @@ A local, deterministic and auditable model-routing plugin for OpenClaw.
 
 The project is designed for one job: **route each eligible OpenClaw turn to an explicitly configured model without spending an LLM call to decide which model should answer.**
 
-> **Project status (11 October 2026):** experimental / shadow-first. The development and integration target is **OpenClaw 2026.9.8**. The document attachment floor has passed a real Worktop shadow test and its fix is merged. Controlled AUTO and independent subagent routing are **not yet accepted**; `shadow` remains the default.
+> **Project status (13 October 2026):** experimental / shadow-first. The development and integration target is **OpenClaw 2026.9.8**. The document attachment floor has passed a real Worktop shadow test and its fix is merged. Controlled AUTO and independent subagent routing are **not yet accepted**; `shadow` remains the default.
+
+The reviewed Issue #7 candidate has passed a recorded shadow deployment gate; restricted-scope status and live AUTO/lifecycle acceptance remain open. Candidate code is not merged by this status update. See the [13 October engineering and deployment record](docs/issue-7-progress-2026-10-13.md).
 
 ## Why this exists
 
