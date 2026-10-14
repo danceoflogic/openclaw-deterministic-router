@@ -21,9 +21,10 @@ The reviewed, locally integrated candidate adds:
 
 | Stage | Recorded result | Qualification |
 |---|---|---|
+| 11 October historical live verification | Eleven authorised live turns recorded AUTO tier routing, manual selection across restart, default/AUTO resumption, shadow and off behaviour; later bounded work recorded direct COMPLEX classification | Partial native turn/run `runtime-model` evidence on the earlier runtime, not embedded provider-call proof or fresh acceptance of the new allowlisted candidate. See the [partial results](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7#issuecomment-6110865520) and [subsequent handover](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7#issuecomment-6114265127). |
 | 12 October baseline reconciliation | Existing shadow runtime differed from merged PR #31 source | Historical baseline, not latest state. |
 | Initial PR #31 deployment | Later explicit readback found healthy Gateway and loaded plugin in shadow | The original readiness allowance was not demonstrated. |
-| Earlier A/B attempts | Stopped at preflight or before inference; shadow restored | No fresh A/B execution acceptance resulted. |
+| 12 October follow-on A/B isolation attempts | Stopped at preflight or before inference; shadow restored | These later attempts did not produce fresh A/B execution acceptance; they do not negate the 11 October partial live results. Neither establishes live acceptance of the subsequently integrated allowlisted candidate. |
 | 13 October clean integration | Typecheck, 57 tests across 9 files, JavaScript/declaration builds and isolated OpenClaw 2026.9.8 loader smoke reported PASS | Local evidence only; not authenticated network access-control or AUTO acceptance. |
 | Independent integration review | No remaining blocking implementation finding; PR #31 fixes preserved | Shared dependency tree was used; fresh independent dependency installation was not validated. |
 | First candidate shadow deployment | Readiness timed out; original artifacts restored | Rollback health also timed out, so the transaction did not establish rollback PASS. Later investigation found restored Gateway health and plugin loading. |
