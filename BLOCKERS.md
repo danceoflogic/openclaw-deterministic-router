@@ -1,6 +1,7 @@
 # Current blockers — 2026-10-14
 
-- **Issue #7 immediate blocker:** fixture-only allowlist CAS returned exit 1 after applying both fixture hashes. Independent readback confirmed guarded shadow and matching configuration/applied revisions. Original stderr was not retained, so the cause remains unknown. Read-only audit corroborates successful persistence; a later CAS/--dry-run incompatibility is a separate diagnostic failure, not the original cause. No AUTO/inference or automatic write retry ran. Diagnose before continuing from existing fixtures; do not rerun the driver unchanged.
+- **Issue #7 current blocker (14 October):** the approved A-test invocation was rejected by OpenClaw's native Codex request-ownership check (**403**). The router recognised A's manual Terra selection and did not override it; no completed inference was observed, and B was withheld. Final recorded state was healthy `shadow` with preserved fixtures/allowlist. A's root/session binding was consistent, but retained logs cannot identify which live ownership predicate denied the request. **Do not retry A or reset credentials without an approved diagnostic plan.** See [Issue #7 diagnosis](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7#issuecomment-6171912245).
+- **Earlier preparation issue, not the present blocker:** the allowlist command exited 1 after successfully persisting both hashes; original stderr was lost. Subsequent continuation reused the verified allowlist and reached A. The earlier error is not evidence of the Codex 403 cause.
 - **Resolved prerequisites:** R2 deployment and authenticated status-scope allow/deny passed. The dedicated test environment initially lacked configured model-provider access (operator-reported setup failure, not a demonstrated router defect); Chris completed setup and supplied UI authentication/allowance evidence. An empty global usage projection and earlier CLI timeout did not prove missing auth or exhausted allowance.
 - **Functional-beta gate:** historical 11 October native-runtime results cover tier routing, manual selection/restart, default resumption and shadow/off. Fresh ordinary-session A/B isolation and lifecycle acceptance for the integrated candidate remain outstanding. See the [existing progress record](docs/issue-7-progress-2026-10-13.md).
 - **Subagent gate:** #8 has not demonstrated an independent child decision and effective model distinct from a stronger parent when the child's work is simpler.
@@ -72,23 +73,3 @@ Missing, malformed, or ambiguous persisted selection state fails AUTO closed
 and removes stale process-local locks. The code-level blocker is addressed on
 the issue branch; the live interactive restart check and controlled AUTO gates
 remain outstanding.
-
-
-## Issue #7 recommendation — embedded alternative review (14 October)
-
-**Recommend one maintainer-scoped Codex request-ownership diagnostic. Do not switch to embedded A/B now.** Embedded equivalence is not substantiated, not proven impossible.
-
-Latest execution supersedes the earlier NOT RUN status: A was attempted once and rejected by OpenClaw request-ownership authorization (403); B was withheld. A is a valid root fixture with matching persisted session and Terra binding. The denying live predicate was not logged, so existing evidence cannot identify its branch. Stop searching for missing historical evidence; no A retry or credential change.
-
-Embedded assessment:
-- Compatibility: installed 2026.9.8 embedded support for manual Terra and AUTO GPT-6 Luna remains unverified; Codex catalog/auth does not establish embedded adapter compatibility.
-- Manual selection: model-selection controls alone do not establish a supported per-session embedded runtime selector and persisted manual-source semantics.
-- Isolation: existing A/B are Codex fixtures and must remain intact. An alternative needs independently verified fresh isolated embedded sessions; no session operation was performed.
-- Effective-model evidence: reviewed router source supports embedded `model_call_started`/`model_call_ended`, correlated by run/call, stronger than native turn-scoped `runtime-model`. This capability is not a received live event or acceptance pass.
-- Costs: embedded auth/billing identity and allowance are unknown. A completed-turn ceiling is not a hard provider-request/token/spend cap; utility calls, retries/fallbacks can exceed turn counts. No inference was executed in this review.
-
-The worker's one pinned read-only Worktop attempt failed at DNS before remote execution. Installed-runtime feasibility therefore remains UNKNOWN; no alternate route or operational change was made.
-
-Ask the maintainer for temporary instrumentation at the Codex ownership decision: stable denial-reason enum and booleans for owner-match and root/session-binding predicates, correlated through an opaque attempt ID. No prompts, responses, credentials, raw session identifiers or tokens. Review the patch first; any future single isolated reproduction requires separate explicit approval. Do not retry A. This establishes the denying authorization branch, **not router A/B acceptance**.
-
-Recorded final shadow restoration and preserved fixtures remain authoritative retained evidence, not a fresh live attestation. All outstanding A/B/lifecycle checkboxes remain open; no rollout, merge or issue closure. Supervisor reviewed the saved worker report, telemetry source/docs and execution receipt. Requested worker Luna/medium was not independently attested; supervisor runtime mismatch was reported, settings unchanged.
