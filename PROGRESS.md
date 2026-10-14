@@ -2,6 +2,8 @@
 
 - **Issue #7 update:** R2 shadow deployment passed on 13 October; authenticated status-scope allow/deny passed on 14 October. Two no-turn Codex fixtures were created. Their allowlist write returned nonzero after applying; final readback confirmed guarded shadow and matching applied revisions. No AUTO or inference ran. Candidate implementation remains unmerged; A/B and lifecycle acceptance remain open. See the [engineering and deployment record](docs/issue-7-progress-2026-10-13.md).
 
+- **PR #33 review milestone:** both P2 status defects confirmed/fixed; 58 tests/typecheck/build and remote CI passed. Supervisor verified focused regression failures on old source/passes on corrected source. Fixes remain unmerged and not deployed; existing R2 receipts retain their scoped historical meaning.
+
 - **Target:** OpenClaw 2026.9.8 on Worktop. OpenClaw 2026.9.6 results below are historical, not a claim of current AUTO compatibility.
 - **Implemented and merged:** deterministic classifier/policy matrix (#4), model identity telemetry with native-runtime limits (#2), persisted manual-selection reconciliation (#3), shadow acceptance (#5), and the real-document attachment-floor fix (#6, PR #22). CI passed on the merged 2026.9.8 target.
 - **Observed on Worktop:** in `shadow`, a real text document promoted SIMPLE to MEDIUM, while an attached REASONING turn stayed REASONING. The audit contained structural attachment metadata, not document content. This did not apply a model override.
