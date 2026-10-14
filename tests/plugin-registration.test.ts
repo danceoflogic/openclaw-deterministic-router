@@ -1,9 +1,10 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   emitTrustedDiagnosticEvent,
   waitForDiagnosticEventsDrained,
 } from "openclaw/plugin-sdk/diagnostic-runtime";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { pathToFileURL } from "node:url";
 import plugin from "../src/index.js";
 
 type InternalHookOptions = {
@@ -219,6 +220,31 @@ describe("plugin registration contract", () => {
     expect(replacement.registrationId).not.toBe(shadow.registrationId);
   });
 
+  it("uses distinct status identities across separately loaded module generations", async () => {
+    const loadGeneration = async (generation: string) => {
+      const sourceUrl = pathToFileURL(new URL("../src/index.ts", import.meta.url).pathname);
+      sourceUrl.searchParams.set("generation", generation);
+      const generationPlugin = (await import(sourceUrl.href)).default as typeof plugin;
+      const registerGatewayMethod = vi.fn();
+      generationPlugin.register({
+        pluginConfig: { mode: "shadow" }, registerGatewayMethod,
+        registerHook: vi.fn(), on: vi.fn(),
+      } as never);
+      const status = registerGatewayMethod.mock.calls[0]?.[1] as (params: {
+        respond: (ok: boolean, payload?: unknown, error?: unknown) => void;
+      }) => void;
+      let payload: Record<string, unknown> | undefined;
+      status({ respond: (_ok, value) => { payload = value as Record<string, unknown>; } });
+      return payload?.registrationId;
+    };
+
+    const first = await loadGeneration(`generation-${randomUUID()}`);
+    const second = await loadGeneration(`generation-${randomUUID()}`);
+    expect(first).toEqual(expect.any(String));
+    expect(second).toEqual(expect.any(String));
+    expect(second).not.toBe(first);
+  });
+
   it("reports unknown effective state instead of inventing a mode without plugin config", () => {
     const registerGatewayMethod = vi.fn();
     plugin.register({
@@ -288,7 +314,7 @@ describe("plugin registration contract", () => {
     expect(registerGatewayMethod).toHaveBeenCalledWith(
       "deterministic-router.status",
       expect.any(Function),
-      { scope: "operator.read" },
+      { scope: "operator.read", profileAccess: "independent" },
     );
     const statusHandler = registerGatewayMethod.mock.calls[0]?.[1] as (params: {
       respond: (ok: boolean, payload?: unknown, error?: unknown) => void;

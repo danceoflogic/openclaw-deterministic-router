@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { InboundAttachmentRegistry, mergeAttachmentSummaries } from "./attachment-observation.js";
 import { parsePluginConfig } from "./config.js";
@@ -28,8 +28,6 @@ type SessionReaderApi = {
     };
   };
 };
-
-let nextRegistrationNumber = 1;
 
 function reconcileCurrentSession(
   api: unknown,
@@ -96,7 +94,9 @@ export default definePluginEntry({
       && api.pluginConfig !== null
       && !Array.isArray(api.pluginConfig);
     const registeredConfig = parsePluginConfig(api.pluginConfig);
-    const registrationId = `${process.pid}:${nextRegistrationNumber++}`;
+    // A module-local counter can restart when OpenClaw loads a fresh module
+    // generation. UUID identity remains unique across those generations.
+    const registrationId = randomUUID();
 
     // Read-only proof of the configuration captured by this loaded plugin
     // registration. Changed plugin settings replace the registration as one
@@ -115,7 +115,7 @@ export default definePluginEntry({
           autoSessionAllowlistCount: pluginConfigAvailable ? registeredConfig.autoSessionKeyHashes.length : null,
         }, undefined);
       },
-      { scope: "operator.read" },
+      { scope: "operator.read", profileAccess: "independent" },
     );
 
     // Gateway document uploads are staged on ctx.media before model resolution.

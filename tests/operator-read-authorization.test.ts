@@ -37,13 +37,13 @@ describe("OpenClaw operator.read authorization", () => {
     const distDir = new URL("../node_modules/openclaw/dist/", import.meta.url);
     const gatewayMethods = await import(pathToFileURL(new URL("server-methods-CTM0-Ih6.mjs", distDir).pathname).href);
     const registryModule = await import(pathToFileURL(new URL("registry-CAoo0u-p.mjs", distDir).pathname).href);
-    const registrations: Array<{ name: string; handler: (ctx: unknown) => void; options: { scope: string } }> = [];
+    const registrations: Array<{ name: string; handler: (ctx: unknown) => void; options: { scope: string; profileAccess: string } }> = [];
     const rawSessionKey = "synthetic-private-session-key";
     const sessionKeyHash = createHash("sha256").update(rawSessionKey, "utf8").digest("hex");
     plugin.register({
       id: "deterministic-router",
       pluginConfig: { mode: "shadow", autoSessionKeyHashes: [sessionKeyHash] },
-      registerGatewayMethod: (name: string, handler: (ctx: unknown) => void, options: { scope: string }) => registrations.push({ name, handler, options }),
+      registerGatewayMethod: (name: string, handler: (ctx: unknown) => void, options: { scope: string; profileAccess: string }) => registrations.push({ name, handler, options }),
       registerHook: () => undefined,
       on: () => undefined,
       lifecycle: { onDispose: (cleanup: () => void) => { disposals.push(cleanup); } },
@@ -51,19 +51,22 @@ describe("OpenClaw operator.read authorization", () => {
     } as never);
     const registration = registrations.find(({ name }) => name === "deterministic-router.status");
     expect(registration?.options.scope).toBe("operator.read");
+    expect(registration?.options.profileAccess).toBe("independent");
     expect(registration).toBeDefined();
 
     let calls = 0;
     const handler = (ctx: unknown) => { calls += 1; registration!.handler(ctx); };
     const methodRegistry = registryModule.n([{
       name: registration!.name, handler, scope: registration!.options.scope,
-      owner: { kind: "plugin", pluginId: "deterministic-router" }, profileAccess: "independent",
+      owner: { kind: "plugin", pluginId: "deterministic-router" }, profileAccess: registration!.options.profileAccess,
     }]);
     const context = { getRuntimeConfig: () => ({}), getCommittedRuntimeConfig: () => ({}) };
     const authorize = async (scopes: string[]) => gatewayMethods.authorizeGatewayRequestPreDispatch({
       method: registration!.name, requestParams: {}, methodRegistry, context,
-      client: { connect: { role: "operator", scopes } },
+      client: { connect: { role: "operator", scopes }, authenticatedGitHubIdentitySync: async () => undefined },
     });
+
+    expect(methodRegistry.requiresAuthenticatedProfile(registration!.name)).toBe(false);
 
     const denied = await authorize([]);
     expect(denied.error).toMatchObject({ details: { missingScope: "operator.read" } });

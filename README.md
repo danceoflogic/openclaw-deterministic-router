@@ -133,7 +133,10 @@ The native OpenClaw manifest includes a strict JSON schema. Key options:
 | `models` | see table above | tier-to-provider/model policy |
 
 The Gateway method `deterministic-router.status` is registered with
-`operator.read` scope. It reports a process-local registration ID, the active
+`operator.read` scope and explicit `profileAccess: "independent"`: this global
+process-local snapshot requires no authenticated user profile, while the
+operator scope check remains mandatory. It reports a fresh UUID registration
+ID that does not reset across separately evaluated module generations, the active
 registration's captured effective mode, safeguards and allowlist count. If
 the registration has no configuration object, it reports `status: "unknown"`
 and null effective fields rather than asserting a mode. Use it alongside
