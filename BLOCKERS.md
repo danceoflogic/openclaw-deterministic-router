@@ -1,8 +1,8 @@
-# Current blockers — 2026-10-13
+# Current blockers — 2026-10-14
 
-- **Issue #7 immediate blocker:** an existing scoped-status preparation report could not be recovered after a worker-continuation relay failure. Restricted live status allow/deny has not run. The R2 shadow deployment passed its recorded gate, but does not resolve runtime acceptance. See the [dated progress record](docs/issue-7-progress-2026-10-13.md).
-
-- **Functional-beta gate:** #7 has not demonstrated live AUTO selected/effective-model agreement, manual override precedence (including a genuine interactive selection across restart), or the `shadow`/`off` rollback path on OpenClaw 2026.9.8.
+- **Issue #7 immediate blocker:** fixture-only allowlist CAS returned exit 1 after applying both fixture hashes. Independent readback confirmed guarded shadow and matching configuration/applied revisions. Original stderr was not retained, so the cause remains unknown. No AUTO/inference or automatic write retry ran. Diagnose before continuing from existing fixtures; do not rerun the driver unchanged.
+- **Resolved prerequisites:** R2 deployment and authenticated status-scope allow/deny passed. The dedicated test environment initially lacked configured model-provider access (operator-reported setup failure, not a demonstrated router defect); Chris completed setup and supplied UI authentication/allowance evidence. An empty global usage projection and earlier CLI timeout did not prove missing auth or exhausted allowance.
+- **Functional-beta gate:** historical 11 October native-runtime results cover tier routing, manual selection/restart, default resumption and shadow/off. Fresh ordinary-session A/B isolation and lifecycle acceptance for the integrated candidate remain outstanding. See the [existing progress record](docs/issue-7-progress-2026-10-13.md).
 - **Subagent gate:** #8 has not demonstrated an independent child decision and effective model distinct from a stronger parent when the child's work is simpler.
 - **Release gate:** #9 performance/restart measurements and #12 compatibility/reproducibility policy remain open. The declared version range must not be read as tested AUTO support across all versions.
 - #6's real-document shadow result passed, its implementation is merged in PR #22, and the issue is closed. It is no longer a beta blocker.

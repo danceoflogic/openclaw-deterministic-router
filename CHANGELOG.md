@@ -6,6 +6,8 @@ All notable changes to this project will be documented here.
 
 ### Documentation
 
+- 2026-10-14: synchronise status-scope PASS, provider setup resolution, preserved no-turn fixtures and transaction stop after nonzero-but-applied allowlist write. Preserve historical runtime evidence; no AUTO/inference or acceptance closure claimed.
+
 - 2026-10-13: publish a sanitised Issue #7 engineering/deployment record and reconcile README, progress and blockers with the recorded R2 shadow deployment. Distinguish local candidate work from merged main and leave restricted-scope, AUTO/A-B and lifecycle acceptance open. Documentation only; rollback by reverting this documentation commit.
 
 ### Fixed
