@@ -9,7 +9,7 @@ The project is designed for one job: **route each eligible OpenClaw turn to an e
 
 > **Project status (14 October 2026):** experimental / shadow-first. The development and integration target is **OpenClaw 2026.9.8**. The document attachment floor has passed a real Worktop shadow test and its fix is merged. Controlled AUTO and independent subagent routing are **not yet accepted**; `shadow` remains the default.
 
-The integrated Issue #7 candidate passed its recorded R2 shadow deployment and authenticated status-scope allow/deny gates. The latest A/B attempt stopped after a fixture allowlist write returned nonzero despite applying; no AUTO or inference ran. Candidate code remains unmerged. See the [engineering and deployment record](docs/issue-7-progress-2026-10-13.md).
+The integrated Issue #7 candidate passed its recorded R2 shadow deployment and authenticated status-scope allow/deny gates. In the **latest approved A/B attempt**, fixture A preserved the manual Terra choice (`manualLock=true`, `applied=false`), but OpenClaw's native Codex runtime rejected the turn with a request-owner **403**; no completed A inference was observed and B was withheld. Final readback confirmed `shadow` and preserved fixtures/allowlist. The earlier nonzero-but-applied allowlist write was a separate preparation problem, not this failure. A/B acceptance remains open; candidate code in [PR #33](https://github.com/danceoflogic/openclaw-deterministic-router/pull/33) is still unmerged, and its newer fixes are not deployed. See the [engineering and deployment record](docs/issue-7-progress-2026-10-13.md).
 
 ## Why this exists
 
