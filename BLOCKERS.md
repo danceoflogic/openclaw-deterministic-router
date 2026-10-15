@@ -1,4 +1,16 @@
-# Current blockers — 2026-10-11
+# Current blockers — 2026-10-15
+
+- **Runtime acceptance (#7):** No completed ordinary-root GPT-6 A/B AUTO acceptance. The older synthetic fixture A produced an ownership-related 403; one separate native Sol success is insufficient to clear it. Controlled A/B prompts were not run in the latest Worktop attempt.
+- **Session setup:** The initial fresh/idle-root prerequisite was not satisfied (one root old; one root already containing an ordinary UI bootstrap turn). A proposed bootstrap revision remains unapproved. The dedicated test-agent default was temporarily changed to GPT-6 Sol from GPT-5.6 Luna; preserve its exact checked restoration target.
+- **Source/deployment distinction:** [PR #33](https://github.com/danceoflogic/openclaw-deterministic-router/pull/33) merged 15 October; [PR #36](https://github.com/danceoflogic/openclaw-deterministic-router/pull/36) is open/unmerged. Retained Worktop evidence says the GPT-6 bundle is deployed in guarded `shadow`; this is **not** an AUTO pass nor proof the pending model-default source migration merged.
+- **Subagent gate (#8):** Independent child routing and observed effective model not yet accepted.
+- **Release gates (#9, #12):** Performance/restart data and version/dependency policy remain pending.
+
+The active next action is a **minimal, deterministic A/B procedure review**, not another unbounded retry cycle. Preserve exact-session containment, independent runtime-model evidence, a maximum of two controlled A/B inferences without retries, and verified shadow/configuration restoration. Historical fixtures and attempt evidence stay intact. Do not treat the unmerged `main` A/B wording as the approved GPT-6 procedure; see [#7](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7), [#10](https://github.com/danceoflogic/openclaw-deterministic-router/issues/10) and pending PR #36.
+
+---
+
+## Historical snapshot — 2026-10-11
 
 - **Functional-beta gate:** #7 has not demonstrated live AUTO selected/effective-model agreement, manual override precedence (including a genuine interactive selection across restart), or the `shadow`/`off` rollback path on OpenClaw 2026.9.8.
 - **Subagent gate:** #8 has not demonstrated an independent child decision and effective model distinct from a stronger parent when the child's work is simpler.
