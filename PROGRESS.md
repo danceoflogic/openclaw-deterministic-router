@@ -1,4 +1,16 @@
-# Current status — 2026-10-11
+# Current status — 2026-10-15
+
+**Source versus deployment:** [PR #33](https://github.com/danceoflogic/openclaw-deterministic-router/pull/33) merged into `main` on 15 October 2026. [PR #36](https://github.com/danceoflogic/openclaw-deterministic-router/pull/36), migrating committed model defaults to GPT-6 Luna/Sol, is open and not merged. The merged `main` mappings and the already-deployed Worktop GPT-6 shadow bundle must not be conflated.
+
+**Last retained Worktop observation:** OpenClaw 2026.9.8 healthy; the GPT-6 bundle was active under guarded `shadow`, with both protections enabled and the existing two-entry allowlist preserved. This is an operator-reported readback from 15 October, not a fresh live inspection by this documentation update. The dedicated test-agent model was temporarily set to GPT-6 Sol for A/B preparation; its original GPT-5.6 Luna default must be restored with checked compare-and-set after the bounded work.
+
+**Acceptance:** The approved ordinary-root GPT-6 A/B AUTO test has **not completed**; earlier synthetic A hit an ownership-related 403. The proposed UI-bootstrap revision is not an approved execution instruction. Independent subagent and lifecycle acceptance also remain open (#7, #8, #10). No rollout, new inference, restart or configuration change is authorized by this progress update.
+
+**Next:** Simplify the A/B execution procedure, keep one evidence trail, avoid repeating passed historical probes, and preserve rollback and historical fixtures. Canonical live-acceptance status: [#7](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7) and [#10](https://github.com/danceoflogic/openclaw-deterministic-router/issues/10). The pending [PR #36](https://github.com/danceoflogic/openclaw-deterministic-router/pull/36) contains the updated GPT-6-specific test protocol; older default-target descriptions on `main` must not be used for a new live AUTO gate.
+
+---
+
+## Historical snapshot — 2026-10-11
 
 ## Historical preparation — 2026-10-13 Issue #7 clean integration candidate
 
