@@ -12,6 +12,8 @@ export const DEFAULT_PLUGIN_CONFIG: RouterPluginConfig = {
   ambiguousTier: "COMPLEX",
   protectManualSelection: true,
   requireSessionKeyForAuto: true,
+  // AUTO is inert until exact session-key hashes are explicitly allowlisted.
+  autoSessionKeyHashes: [],
   minAttachmentTier: "MEDIUM",
   models: DEFAULT_MODELS,
 };
@@ -53,6 +55,13 @@ export function parsePluginConfig(raw: unknown): RouterPluginConfig {
     TIERS.map((tier) => [tier, parseModelTarget(modelsRaw[tier], DEFAULT_MODELS[tier])]),
   ) as Record<RouterTier, ModelTarget>;
 
+  const autoSessionKeyHashes = Array.isArray(raw.autoSessionKeyHashes)
+    && raw.autoSessionKeyHashes.every(
+      (value): value is string => typeof value === "string" && /^[a-f0-9]{64}$/.test(value),
+    )
+    ? raw.autoSessionKeyHashes
+    : DEFAULT_PLUGIN_CONFIG.autoSessionKeyHashes;
+
   return {
     mode,
     ambiguousTier,
@@ -65,6 +74,7 @@ export function parsePluginConfig(raw: unknown): RouterPluginConfig {
       typeof raw.requireSessionKeyForAuto === "boolean"
         ? raw.requireSessionKeyForAuto
         : DEFAULT_PLUGIN_CONFIG.requireSessionKeyForAuto,
+    autoSessionKeyHashes: [...new Set(autoSessionKeyHashes)],
     models,
   };
 }

@@ -14,6 +14,8 @@ export type RouterPluginConfig = {
   ambiguousTier: RouterTier;
   protectManualSelection: boolean;
   requireSessionKeyForAuto: boolean;
+  /** SHA-256 hex digests of the exact session keys permitted to receive AUTO overrides. */
+  autoSessionKeyHashes: string[];
   minAttachmentTier: RouterTier;
   models: Record<RouterTier, ModelTarget>;
 };

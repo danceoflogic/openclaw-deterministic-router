@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "node:crypto";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { InboundAttachmentRegistry, mergeAttachmentSummaries } from "./attachment-observation.js";
 import { parsePluginConfig } from "./config.js";
@@ -89,6 +90,33 @@ export default definePluginEntry({
     const locks = new SessionLockRegistry();
     const calls = new ModelCallCorrelationRegistry();
     const inbound = new InboundAttachmentRegistry();
+    const pluginConfigAvailable = typeof api.pluginConfig === "object"
+      && api.pluginConfig !== null
+      && !Array.isArray(api.pluginConfig);
+    const registeredConfig = parsePluginConfig(api.pluginConfig);
+    // A module-local counter can restart when OpenClaw loads a fresh module
+    // generation. UUID identity remains unique across those generations.
+    const registrationId = randomUUID();
+
+    // Read-only proof of the configuration captured by this loaded plugin
+    // registration. Changed plugin settings replace the registration as one
+    // published generation (see OpenClaw 2026.9.8 plugin lifecycle docs).
+    api.registerGatewayMethod?.(
+      "deterministic-router.status",
+      ({ respond }) => {
+        respond(true, {
+          status: pluginConfigAvailable ? "available" : "unknown",
+          pluginId: "deterministic-router",
+          registrationId,
+          mode: pluginConfigAvailable ? registeredConfig.mode : null,
+          effectiveMode: pluginConfigAvailable ? registeredConfig.mode : null,
+          protectManualSelection: pluginConfigAvailable ? registeredConfig.protectManualSelection : null,
+          requireSessionKeyForAuto: pluginConfigAvailable ? registeredConfig.requireSessionKeyForAuto : null,
+          autoSessionAllowlistCount: pluginConfigAvailable ? registeredConfig.autoSessionKeyHashes.length : null,
+        }, undefined);
+      },
+      { scope: "operator.read", profileAccess: "independent" },
+    );
 
     // Gateway document uploads are staged on ctx.media before model resolution.
     // Keep only structural facts and a classification of the original user text.
@@ -115,7 +143,7 @@ export default definePluginEntry({
     );
 
     api.on("before_model_resolve", (event, ctx) => {
-      const config = parsePluginConfig(api.pluginConfig);
+      const config = registeredConfig;
       if (config.mode === "off") return;
 
       const inboundObservation = inbound.consume(ctx.runId, ctx.sessionKey);
@@ -146,10 +174,16 @@ export default definePluginEntry({
       );
 
       const missingSessionKey = config.requireSessionKeyForAuto && !sessionKey;
+      const sessionHash = sessionKey
+        ? createHash("sha256").update(sessionKey, "utf8").digest("hex")
+        : undefined;
+      const sessionNotAllowlisted = config.mode === "auto"
+        && (!sessionHash || !config.autoSessionKeyHashes.includes(sessionHash));
       const applied = config.mode === "auto"
         && !manualLock
         && !manualSelectionUnknown
-        && !missingSessionKey;
+        && !missingSessionKey
+        && !sessionNotAllowlisted;
 
       const reason = manualLock
         ? "manual session model selection detected; router yielded"
@@ -157,7 +191,9 @@ export default definePluginEntry({
           ? "persisted session model selection unavailable; fail-closed without override"
           : missingSessionKey
             ? "session identity unavailable; fail-closed without override"
-            : decision.reason;
+            : sessionNotAllowlisted
+              ? "session is not allowlisted for AUTO; fail-closed without override"
+              : decision.reason;
 
       const audit = makeAuditRecord({
         decision,

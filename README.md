@@ -128,8 +128,20 @@ The native OpenClaw manifest includes a strict JSON schema. Key options:
 | `ambiguousTier` | `COMPLEX` | deterministic fallback when Router Core returns no confident tier |
 | `protectManualSelection` | `true` | yield for an authoritative persisted session override; fail closed when that state is unknown |
 | `requireSessionKeyForAuto` | `true` | skip auto override when the session cannot be identified |
+| `autoSessionKeyHashes` | `[]` | SHA-256 hex digests of exact session keys permitted to receive AUTO overrides; empty means no session can be overridden |
 | `minAttachmentTier` | `MEDIUM` | deterministic floor for turns with attachments |
 | `models` | see table above | tier-to-provider/model policy |
+
+The Gateway method `deterministic-router.status` is registered with
+`operator.read` scope and explicit `profileAccess: "independent"`: this global
+process-local snapshot requires no authenticated user profile, while the
+operator scope check remains mandatory. It reports a fresh UUID registration
+ID that does not reset across separately evaluated module generations, the active
+registration's captured effective mode, safeguards and allowlist count. If
+the registration has no configuration object, it reports `status: "unknown"`
+and null effective fields rather than asserting a mode. Use it alongside
+OpenClaw's authored/applied revision fields; the method does not expose session
+keys or their hashes and does not change configuration.
 
 ## Telemetry
 

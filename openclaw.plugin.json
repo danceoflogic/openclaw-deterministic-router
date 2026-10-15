@@ -40,6 +40,15 @@
         "type": "boolean",
         "default": true
       },
+      "autoSessionKeyHashes": {
+        "type": "array",
+        "description": "SHA-256 hex digests of exact session keys permitted to receive AUTO overrides. Empty means AUTO never applies.",
+        "items": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "default": []
+      },
       "minAttachmentTier": {
         "type": "string",
         "enum": [

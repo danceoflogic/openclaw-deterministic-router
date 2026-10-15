@@ -1,5 +1,13 @@
 # Current status — 2026-10-11
 
+## Historical preparation — 2026-10-13 Issue #7 clean integration candidate
+
+- This clean integration branch is based on current main `dc6fb239a5c7e80a74b13b223bec2bf7538b59e0` and contains the merged PR #31 listener lifecycle corrections plus Issue #7 allowlist/status work. The original dirty candidate and its archive remain preserved.
+- At this preparation stage, no installed bundle, Gateway, runtime config or AUTO mode was changed. Subsequent R2 deployment and status-scope results are recorded on Issue #7.
+- Added exact session-key SHA-256 allowlisting (default empty and fail-closed), read-only registration status, and private status unknown behavior. Added config, allowlist, mode, and status regressions.
+- Combined `npm run check` and isolated OpenClaw 2026.9.8 loader smoke are run on this clean integration checkout; exact results and artifact identities are in its evidence report.
+- **At preparation time:** live RPC, effective mode/revision, deployment and AUTO acceptance were unverified. Subsequently R2 shadow deployment and authenticated status-scope allow/deny passed; ordinary-session A/B and lifecycle acceptance remain open. See [Issue #7](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7) for the current evidence ledger. Unit and loader checks are not operational acceptance.
+
 - **Target:** OpenClaw 2026.9.8 on Worktop. OpenClaw 2026.9.6 results below are historical, not a claim of current AUTO compatibility.
 - **Implemented and merged:** deterministic classifier/policy matrix (#4), model identity telemetry with native-runtime limits (#2), persisted manual-selection reconciliation (#3), shadow acceptance (#5), and the real-document attachment-floor fix (#6, PR #22). CI passed on the merged 2026.9.8 target.
 - **Observed on Worktop:** in `shadow`, a real text document promoted SIMPLE to MEDIUM, while an attached REASONING turn stayed REASONING. The audit contained structural attachment metadata, not document content. This did not apply a model override.
