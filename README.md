@@ -27,14 +27,14 @@ local 15-dimension classifier
 
 The initial model policy used by this repository is:
 
-| Tier | Provider | Model |
-|---|---|---|
-| SIMPLE | Telnyx | `MiniMaxAI/MiniMax-M3-MXFP8` |
-| MEDIUM | OpenAI | `gpt-5.6-luna` |
-| COMPLEX | OpenAI | `gpt-5.6-terra` |
-| REASONING | OpenAI | `gpt-5.6-sol` |
+| Tier | Provider | Model | Desired thinking effort |
+|---|---|---|---|
+| SIMPLE | OpenAI | `openai/gpt-6-luna` | Low |
+| MEDIUM | OpenAI | `openai/gpt-6-luna` | Medium |
+| COMPLEX | OpenAI | `openai/gpt-6-sol` | Medium |
+| REASONING | OpenAI | `openai/gpt-6-sol` | High |
 
-Every target is configurable.
+Every target is configurable. Thinking effort is recorded as policy intent only: this router currently supports provider/model overrides, so per-tier effort enforcement is deferred to [Issue #35](https://github.com/danceoflogic/openclaw-deterministic-router/issues/35).
 
 ## Design goals
 
@@ -156,7 +156,7 @@ Each decision is logged as one JSON object containing fields such as:
   "score": 0.12,
   "confidence": 0.81,
   "selectedProvider": "openai",
-  "selectedModel": "gpt-5.6-luna",
+  "selectedModel": "gpt-6-luna",
   "verificationLevel": "selected-only",
   "manualLock": false,
   "applied": false

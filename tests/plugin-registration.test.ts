@@ -56,7 +56,7 @@ describe("plugin registration contract", () => {
       runId,
       callId: `${runId}:codex-model:1`,
       provider: "openai",
-      model: "gpt-5.6-terra",
+      model: "gpt-6-sol",
       observationUnit: "turn" as const,
     };
     emitTrustedDiagnosticEvent({ type: "model.call.started", ...identity });
@@ -72,7 +72,7 @@ describe("plugin registration contract", () => {
     expect(records).toHaveLength(2);
     expect(records.map((record) => record.phase)).toEqual(["started", "ended"]);
     for (const record of records) {
-      expect(record).toMatchObject({ runId: "managed-run", verificationLevel: "runtime-model", resolvedModel: "gpt-5.6-terra" });
+      expect(record).toMatchObject({ runId: "managed-run", verificationLevel: "runtime-model", resolvedModel: "gpt-6-sol" });
       expect(record.decisionId).toEqual(expect.any(String));
     }
     expect(records[0].decisionId).toBe(records[1].decisionId);
@@ -122,9 +122,9 @@ describe("plugin registration contract", () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("managed disposal unavailable"));
     const end = on.mock.calls.find(([name]) => name === "agent_end")?.[1] as
       (event: { runId: string }, ctx: { modelProviderId: string; modelId: string }) => void;
-    end({ runId: "unmanaged-run" }, { modelProviderId: "openai", modelId: "gpt-5.6-terra" });
+    end({ runId: "unmanaged-run" }, { modelProviderId: "openai", modelId: "gpt-6-sol" });
     expect(JSON.parse(info.mock.calls[0]![0].slice("[deterministic-router] ".length))).toMatchObject({
-      source: "agent_end_context", verificationLevel: "runtime-model", resolvedModel: "gpt-5.6-terra",
+      source: "agent_end_context", verificationLevel: "runtime-model", resolvedModel: "gpt-6-sol",
     });
   });
 
@@ -145,7 +145,7 @@ describe("plugin registration contract", () => {
     const info = vi.fn();
     let entry = {
       sessionId: "retained-session", lifecycleRevision: "before-reset",
-      providerOverride: "openai", modelOverride: "gpt-5.6-terra", modelOverrideSource: "user",
+      providerOverride: "openai", modelOverride: "gpt-6-sol", modelOverrideSource: "user",
     };
     const getSessionEntry = vi.fn(({ agentId, sessionKey, readConsistency }: {
       agentId?: string; sessionKey: string; readConsistency?: "latest";
@@ -570,7 +570,7 @@ describe("plugin registration contract", () => {
       locked: {
         sessionId: "locked-session",
         providerOverride: "openai",
-        modelOverride: "gpt-5.6-sol",
+        modelOverride: "gpt-6-sol",
       },
       automatic: { sessionId: "automatic-session" },
     };
@@ -761,7 +761,7 @@ describe("plugin registration contract", () => {
     let entry: unknown = {
       sessionId: "session-before-delete",
       providerOverride: "openai",
-      modelOverride: "gpt-5.6-sol",
+        modelOverride: "gpt-6-sol",
     };
     const api = {
       pluginConfig: { mode: "auto" },

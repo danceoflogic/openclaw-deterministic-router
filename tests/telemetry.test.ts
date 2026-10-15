@@ -51,14 +51,14 @@ describe("model-call telemetry correlation", () => {
       runId: "run-1",
       callId: "call-1",
       provider: "openai",
-      model: "gpt-5.6-sol",
+      model: "gpt-6-sol",
       api: "responses",
     });
     const firstEnded = registry.recordCallEnded({
       runId: "run-1",
       callId: "call-1",
       provider: "openai",
-      model: "gpt-5.6-sol",
+      model: "gpt-6-sol",
       durationMs: 120,
       outcome: "completed",
     });
@@ -73,7 +73,7 @@ describe("model-call telemetry correlation", () => {
     expect(firstStarted.selectedModel).toBe(decision.target.model);
     expect(firstStarted.verificationLevel).toBe("provider-call");
     expect(firstStarted.effectiveProvider).toBe("openai");
-    expect(firstStarted.effectiveModel).toBe("gpt-5.6-sol");
+    expect(firstStarted.effectiveModel).toBe("gpt-6-sol");
     expect(firstEnded.decisionId).toBe(firstStarted.decisionId);
     expect(firstEnded.durationMs).toBe(120);
     expect(retryStarted.effectiveProvider).toBe("fallback-provider");

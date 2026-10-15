@@ -25,9 +25,8 @@ Run in `shadow` mode and verify the actual target runtime exposes the expected c
 
 Test:
 
-- `/model` selecting Luna
-- `/model` selecting Terra
-- `/model` selecting Sol
+- `/model` selecting GPT-6 Luna
+- `/model` selecting GPT-6 Sol
 - clearing the manual override back to the default/automatic state
 - restarting the plugin/Gateway with a pre-existing persisted selection
 - resetting/deleting and recreating a locked session, plus a second isolated session

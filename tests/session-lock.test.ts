@@ -12,13 +12,13 @@ describe("session model-selection lock registry", () => {
       applySessionPatch(
         registry,
         "s1",
-        { key: "s1", model: "openai/gpt-5.6-sol" },
-        { sessionId: "session-1", providerOverride: "openai", modelOverride: "gpt-5.6-sol" },
+        { key: "s1", model: "openai/gpt-6-sol" },
+        { sessionId: "session-1", providerOverride: "openai", modelOverride: "gpt-6-sol" },
       ),
     ).toBe("set");
     expect(registry.get("s1")).toMatchObject({
       provider: "openai",
-      model: "gpt-5.6-sol",
+      model: "gpt-6-sol",
       sessionId: "session-1",
     });
   });
@@ -30,22 +30,22 @@ describe("session model-selection lock registry", () => {
       reconcilePersistedSessionEntry(registry, "s1", {
         sessionId: "session-1",
         providerOverride: "openai",
-        modelOverride: "gpt-5.6-sol",
-        model: "MiniMaxAI/MiniMax-M3-MXFP8",
+        modelOverride: "gpt-6-sol",
+        model: "gpt-6-luna",
         modelProvider: "telnyx",
       }),
     ).toBe("set");
     expect(registry.getState("s1")).toBe("locked");
     expect(registry.get("s1")).toMatchObject({
       provider: "openai",
-      model: "gpt-5.6-sol",
+      model: "gpt-6-sol",
       sessionId: "session-1",
     });
   });
 
   it("clears the lock when a model-selection patch normalizes back to default", () => {
     const registry = new SessionLockRegistry();
-    registry.set("s1", { model: "gpt-5.6-sol", provider: "openai" });
+    registry.set("s1", { model: "gpt-6-sol", provider: "openai" });
 
     expect(
       applySessionPatch(
@@ -61,14 +61,14 @@ describe("session model-selection lock registry", () => {
 
   it("treats the persisted default source as a clear even if legacy override fields remain", () => {
     const registry = new SessionLockRegistry();
-    registry.set("s1", { model: "gpt-5.6-sol", provider: "openai" });
+    registry.set("s1", { model: "gpt-6-sol", provider: "openai" });
 
     expect(
       reconcilePersistedSessionEntry(registry, "s1", {
         sessionId: "session-2",
         modelOverrideSource: "default",
         providerOverride: "openai",
-        modelOverride: "gpt-5.6-sol",
+        modelOverride: "gpt-6-sol",
       }),
     ).toBe("cleared");
     expect(registry.get("s1")).toBeUndefined();
@@ -77,7 +77,7 @@ describe("session model-selection lock registry", () => {
 
   it("removes stale state and fails closed when persisted state is missing or ambiguous", () => {
     const registry = new SessionLockRegistry();
-    registry.set("s1", { model: "gpt-5.6-sol", provider: "openai" });
+    registry.set("s1", { model: "gpt-6-sol", provider: "openai" });
 
     expect(reconcilePersistedSessionEntry(registry, "s1", undefined)).toBe("unknown");
     expect(registry.get("s1")).toBeUndefined();
@@ -97,17 +97,17 @@ describe("session model-selection lock registry", () => {
     reconcilePersistedSessionEntry(registry, "s1", {
       sessionId: "session-1",
       providerOverride: "openai",
-      modelOverride: "gpt-5.6-sol",
+      modelOverride: "gpt-6-sol",
     });
     reconcilePersistedSessionEntry(registry, "s2", {
       sessionId: "session-2",
       providerOverride: "openai",
-      modelOverride: "gpt-5.6-luna",
+      modelOverride: "gpt-6-luna",
     });
 
     expect(reconcilePersistedSessionEntry(registry, "s1", { sessionId: "session-4" })).toBe("cleared");
     expect(registry.getState("s1")).toBe("clear");
-    expect(registry.get("s2")).toMatchObject({ model: "gpt-5.6-luna" });
+    expect(registry.get("s2")).toMatchObject({ model: "gpt-6-luna" });
   });
 
   it("ignores unrelated session patches", () => {
@@ -122,7 +122,7 @@ describe("session model-selection lock registry", () => {
     const registry = new SessionLockRegistry();
     const selection = {
       sessionId: "retained-session", lifecycleRevision: "before-reset",
-      providerOverride: "openai", modelOverride: "gpt-5.6-terra", modelOverrideSource: "user",
+      providerOverride: "openai", modelOverride: "gpt-6-sol", modelOverrideSource: "user",
     };
     reconcilePersistedSessionEntry(registry, "retained-key", selection);
     expect(reconcilePersistedSessionEntry(registry, "retained-key", {
@@ -130,7 +130,7 @@ describe("session model-selection lock registry", () => {
     })).toBe("set");
     expect(registry.getState("retained-key")).toBe("locked");
     expect(registry.get("retained-key")).toMatchObject({
-      sessionId: "retained-session", provider: "openai", model: "gpt-5.6-terra",
+      sessionId: "retained-session", provider: "openai", model: "gpt-6-sol",
     });
   });
 
@@ -138,16 +138,16 @@ describe("session model-selection lock registry", () => {
     const registry = new SessionLockRegistry();
     expect(
       applySessionPatch(registry, "s1", {
-        modelOverride: "gpt-5.6-sol",
+        modelOverride: "gpt-6-sol",
         providerOverride: "openai",
       }),
     ).toBe("set");
-    expect(registry.get("s1")?.model).toBe("gpt-5.6-sol");
+    expect(registry.get("s1")?.model).toBe("gpt-6-sol");
   });
 
   it("clears a patch-only default sentinel", () => {
     const registry = new SessionLockRegistry();
-    registry.set("s1", { model: "gpt-5.6-sol", provider: "openai" });
+    registry.set("s1", { model: "gpt-6-sol", provider: "openai" });
 
     expect(applySessionPatch(registry, "s1", { model: "default" })).toBe("cleared");
     expect(registry.get("s1")).toBeUndefined();

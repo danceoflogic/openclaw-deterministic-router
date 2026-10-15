@@ -110,30 +110,28 @@ Issues:
 - [#7 controlled AUTO](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7)
 - [#8 subagent independence](https://github.com/danceoflogic/openclaw-deterministic-router/issues/8)
 
-AUTO is a test condition, not the repository default.
+AUTO is a test condition, not the repository default. This procedure is prepared only; running it, enabling AUTO, or making live model calls requires separate approval.
 
-### Ordinary turns
+### Issue #7 model-choice A/B (prepared; not run)
 
-For issue #7 on Worktop, use the smallest set of known prompts needed to exercise the accessible OpenAI targets (MEDIUM/Luna, COMPLEX/Terra, and REASONING/Sol). Do **not** run a live Telnyx/MiniMax AUTO test for the default SIMPLE target: Chris does not have access to that route, and exercising it is unnecessary for the bounded AUTO, manual-precedence, and kill-switch checks. Do not provision Telnyx credentials or block this scoped test solely to obtain them.
+Prepare two distinct, normal supported root sessions on Worktop. Session A explicitly selects GPT-6 Sol; session B starts on GPT-6 Sol as its configured/default model and has no manual override in persisted session state. Do not reuse or recreate the earlier failed synthetic fixtures; preserve them as historical evidence. Keep session keys private and correlate sanitized records by session-key hash and run ID.
 
-This is a scope exclusion, **not** a pass for Telnyx/SIMPLE AUTO routing. Record the exclusion in issue #7's results and do not claim that every default target has been live-verified. Keep the zero-inference SIMPLE classification and tier-mapping tests; the exclusion concerns live Telnyx calls only. Before any AUTO run, ensure each target actually exercised has a known-good provider route and choose probes that cannot unintentionally select the excluded target.
+This A/B requires AUTO to exercise both manual protection and automatic routing, but this document does not authorize that change. Only in a separately approved test window, set the plugin mode to `auto` and allowlist exactly the hashes for sessions A and B; keep every other session unlisted. Preserve `shadow` as the repository default. Use the same unambiguous SIMPLE prompt in each session (for example, “Reply with the number 2.”). Do not save the prompt or response in logs.
 
-For every AUTO-applied turn verify:
+**A — manual model selection**
 
-- `applied=true`;
-- selected provider/model equals effective provider/model;
-- no unexplained fallback or escalation occurs.
+1. In session A, confirm the explicit manual selection `openai/gpt-6-sol`, then submit the SIMPLE prompt.
+2. Require a router decision for the same run showing `classifierTier: "SIMPLE"`, `manualLock: true`, and `applied: false`.
+3. Independently require a trusted OpenClaw native `model.call.completed` diagnostic recorded as `runtime-model` for that run showing GPT-6 Sol, correlated by run ID, plus confirmation that the root turn completed. The router's selected-model decision alone is insufficient.
 
-### Manual override precedence
+**B — automatic routing**
 
-While AUTO is enabled:
+1. In separate session B, confirm the configured/default model is `openai/gpt-6-sol` and persisted state has no manual override, then submit the same SIMPLE prompt.
+2. Require a router decision for the same run showing `classifierTier: "SIMPLE"`, `effectiveTier: "SIMPLE"`, `selectedProvider: "openai"`, `selectedModel: "gpt-6-luna"`, and `applied: true`, with no manual lock.
+3. Independently require a trusted OpenClaw native `model.call.completed` diagnostic recorded as `runtime-model` for that run showing GPT-6 Luna, correlated by run ID, plus confirmation that the root turn completed. The router's selected-model decision alone is insufficient.
+4. Restore `shadow` immediately after the bounded test and verify the resulting mode/config revision.
 
-1. select a model manually;
-2. send a prompt that would route elsewhere;
-3. require `manualLock=true` and `applied=false`;
-4. verify the effective model remains the manual selection;
-5. return the session to default selection;
-6. verify AUTO resumes.
+For both arms, retain only sanitized decision/runtime evidence and completion status. A prior ordinary GPT-6 Sol or reported Luna success is model-availability evidence, not A/B acceptance. It also does not resolve the separate historical Codex ownership 403. Stop and record a blocker if the required runtime completion evidence is absent or disagrees with the router decision; do not substitute the synthetic fixtures.
 
 ### Subagents
 
