@@ -1,6 +1,6 @@
 # Issue #7 — engineering and deployment progress
 
-**Record date:** 13 October 2026; updated 14 October 2026. **Latest outcome:** R2 shadow deployment and status-scope tests passed. A later approved A/B attempt reached A once, but native Codex denied its turn with a local request-owner 403; B was withheld and final `shadow` restoration was verified. No completed fixture inference was observed. Issue #7 remains open.
+**Record date:** 13 October 2026; updated 15 October 2026. **Latest outcome:** one separate isolated fresh-main Sol execution succeeded. Fresh router A/B preflight subsequently stopped at retained prior-attempt evidence before AUTO or inference. The earlier A request-owner 403 remains unexplained; B and overall A/B acceptance remain incomplete. Issue #7 remains open.
 
 This is a sanitised summary of retained engineering reports, independent reviews and deployment receipts. It is not a fresh live-state check. Private operational receipts are not committed to this public repository; their reported results are distinguished below from reproducible repository evidence.
 
@@ -81,3 +81,13 @@ At significant test outcomes, reviewed code changes, deployments or acceptance-g
 ## Publication scope
 
 This documentation update publishes the sanitised project status only. It does not merge candidate code, edit issue acceptance checkboxes, close issues, rerun deployment, restart services, change credentials/configuration/sessions or perform inference. Host routes, account details, process/session identifiers, configuration fingerprints, prompts/responses, credentials and raw logs are intentionally omitted.
+
+## Codex ownership investigation — 15 October 2026
+
+The original fixture-A owner-verification 403 remains unexplained. Source review located the ownership decision boundary, but no failing predicate was captured. OAuth expiry was not established as its cause; creating a session without an initial turn was not a sufficient explanation. The instrumented local package could not exercise a privileged store API under the supported trust rules; no trust or ownership check was weakened. The successful isolated request used the unmodified official package.
+
+A separate isolated OpenClaw 2026.9.8 profile subsequently completed one fresh, non-delivered `main` request explicitly pinned to `openai/gpt-6-sol`. The response marker matched; sanitized Gateway JSON identified `openai/gpt-6-sol` in requested and effective terminal receipts and the recorded execution attempt. Installed source distinguishes the effective receipt from the requested model. Earlier default-Astra successes are separate evidence, not Sol confirmations. A launcher state-root correction explained an intervening diagnostic startup failure, not the original ownership 403. The test Gateway was stopped afterwards. This is one isolated Sol success, not a root-cause finding, repeated confirmation or acceptance of the original router path.
+
+## Fresh A/B continuation preflight — 15 October 2026
+
+Fresh pinned Worktop checks passed Gateway health, expected R2 plugin/build/schema, authored/effective shadow, both safeguards, matching configuration/applied revisions and the unchanged two-fixture allowlist. The continuation stopped at its prior-attempt gate because retained private fixture-attempt evidence existed. Neither fixture ran; no AUTO window, inference, reservation, configuration write or remote-file change occurred. The private record was not opened or published; final readback remained guarded shadow. Later session model-row and classifier gates were not reached. A/B acceptance remains open. The next reviewed continuation must account for the existing evidence and avoid a blind repeat. No issue closure, merge or general AUTO rollout is claimed.
