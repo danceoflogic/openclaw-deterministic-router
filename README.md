@@ -7,7 +7,9 @@ A local, deterministic and auditable model-routing plugin for OpenClaw.
 
 The project is designed for one job: **route each eligible OpenClaw turn to an explicitly configured model without spending an LLM call to decide which model should answer.**
 
-> **Project status (11 October 2026):** experimental / shadow-first. The development and integration target is **OpenClaw 2026.9.8**. The document attachment floor has passed a real Worktop shadow test and its fix is merged. Controlled AUTO and independent subagent routing are **not yet accepted**; `shadow` remains the default.
+> **Project status (15 October 2026):** experimental / shadow-first. The development and integration target is **OpenClaw 2026.9.8**. The document attachment floor has passed a real Worktop shadow test and its fix is merged. Controlled AUTO and independent subagent routing are **not yet accepted**; `shadow` remains the default.
+
+The integrated Issue #7 candidate passed its recorded R2 shadow deployment and authenticated status-scope allow/deny gates. The earlier A test failed at native Codex request-owner authorization (403); B was withheld. One separate isolated fresh-main GPT-6 Sol run succeeded, but does not establish recovery of the original fixture route. A fresh 15 October preflight confirmed guarded R2 shadow and unchanged fixtures, then stopped at the prior-attempt gate without AUTO or inference. [PR #33](https://github.com/danceoflogic/openclaw-deterministic-router/pull/33) remains unmerged and its newer fixes are not deployed. See the [engineering record](docs/issue-7-progress-2026-10-13.md).
 
 ## Why this exists
 

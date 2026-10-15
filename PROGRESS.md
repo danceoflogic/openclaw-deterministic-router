@@ -1,9 +1,13 @@
-# Current status — 2026-10-11
+# Current status — 2026-10-15
+
+- **Issue #7 latest (15 October):** fresh Worktop preflight passed R2 health/build, guarded shadow, revision agreement and unchanged fixture allowlist checks, then stopped at the prior-attempt gate. Neither fixture ran in this cycle. The earlier A invocation failed with a native Codex request-owner **403** after the router correctly preserved its manual Terra choice; B was withheld. One separate isolated fresh-main GPT-6 Sol run has since succeeded with an effective execution receipt, but the historical cause and original-route recovery remain unproven. **A/B and lifecycle acceptance remain open.** See the [engineering record](docs/issue-7-progress-2026-10-13.md).
+
+- **PR #33 review milestone:** both P2 status defects confirmed/fixed; 58 tests/typecheck/build and remote CI passed. Supervisor verified focused regression failures on old source/passes on corrected source. Fixes remain unmerged and not deployed; existing R2 receipts retain their scoped historical meaning.
 
 - **Target:** OpenClaw 2026.9.8 on Worktop. OpenClaw 2026.9.6 results below are historical, not a claim of current AUTO compatibility.
 - **Implemented and merged:** deterministic classifier/policy matrix (#4), model identity telemetry with native-runtime limits (#2), persisted manual-selection reconciliation (#3), shadow acceptance (#5), and the real-document attachment-floor fix (#6, PR #22). CI passed on the merged 2026.9.8 target.
 - **Observed on Worktop:** in `shadow`, a real text document promoted SIMPLE to MEDIUM, while an attached REASONING turn stayed REASONING. The audit contained structural attachment metadata, not document content. This did not apply a model override.
-- **Still unverified:** a live interactive manual `/model` selection across Gateway restart; controlled AUTO selected/effective-model and manual-precedence checks (#7); independent subagent routing (#8). Keep `shadow` as the default.
+- **Historical partial evidence:** 11 October native turn/run observations cover tier routing, genuine manual selection across restart, default/AUTO resumption and shadow/off; these do not establish acceptance of the new allowlisted candidate. **Outstanding:** independent ordinary-session A/B selected/effective-model isolation and lifecycle acceptance (#7), then independent subagent routing (#8). Keep `shadow` as the default.
 - **Beta gate:** complete #7 and #8 with evidence on the target runtime, restore `shadow` after bounded tests, and document any native turn-level observability limit. This is a functional beta, not a release claim.
 - **Release work after beta:** overhead/restart/telemetry measurements (#9), compatibility and dependency reproducibility policy (#12), and the remaining release-level acceptance checks in #10.
 - **Tracker:** #6 is closed with the real-document evidence and merged PR #22; #10 marks the attachment shadow gate complete. The AUTO and subagent gates remain open.
