@@ -29,16 +29,23 @@ The OpenClaw 2026.9.6 provider-call hook contract (`docs/plugins/hooks/prompt-an
 
 `agent_end`, `llm_input` / `llm_output`, and native turn diagnostics must not be relabelled as provider-call events or assigned fabricated provider-request semantics. Native diagnostic `callId` is retained only as a turn-scoped synthetic identifier. Raw prompts, responses, headers, credentials, raw session keys, and raw provider request IDs are not logged.
 
-## Aggregate external sanity check
+## Owner-side turn-level accounting and aggregate checks
 
-For a controlled acceptance run, OpenAI account/model usage can provide an independent aggregate cross-check:
+**Issue #7 owner decision, 2026-10-17:** the owner reports that their OpenAI logs can provide **turn-level model accounting**. This is a separately assessed external verification source, not a requirement to retrofit native Codex provider-call receipts for functional acceptance.
 
-1. Choose a short, isolated test window and a small known prompt set.
-2. Record router decisions, timestamps, selected provider/model, and emitted verification levels.
-3. Inspect OpenAI usage for the same window by model.
-4. Confirm that aggregate usage is consistent with the routed workload and investigate obvious drift, such as a Luna-heavy run unexpectedly consuming Sol.
+For a bounded test, retain only sanitized test timestamps, the OpenClaw run/session correlation that is already available, router mode/manual-lock/applied/model fields and completed-turn status. The owner can then compare their OpenAI model-accounting records:
 
-Usage data is aggregate evidence only. It is not exact per-`runId` or per-`callId` correlation and must not be presented as provider-call proof for an individual turn.
+- **When an OpenAI record can genuinely be associated with an individual completed turn**, record the independently observed model for that turn and note how the association was established. Treat this as turn-level accounting, not proof of every hidden Codex retry or request.
+- **When the data is only grouped by model/time window**, report it as an aggregate cross-check; do not assert exact per-run correlation.
+- Where the owner has not yet inspected the records, mark external verification **pending**, not failed or passed. Any later mismatch requires follow-up.
+
+Never copy provider request identifiers, raw prompts, responses, private session keys or credentials into the router audit or GitHub evidence.
+
+## Issue #7: two-track acceptance policy
+
+**Functional acceptance may proceed using OpenClaw's own model-selection state, scoped manual override, router decisions and confirmed completed turns.** Provider-model identity from OpenAI accounting is deferred to an independent owner-run check and does not block that functional gate. Native `model.call.completed`, `selectionReceipt` and per-provider-call receipts are valuable optional observations, but their absence is not a standalone failure of the Issue #7 functional test. Do not label selected-only evidence as provider-verified.
+
+This acceptance-policy change does not remove the runtime telemetry facilities developed under Issue #2, change the router's routing policy, or waive manual-precedence, fail-closed session scope, isolation and shadow/off restoration controls. See [the updated canonical acceptance protocol](acceptance-test-protocol.md).
 
 ## Accepted native limitation
 
