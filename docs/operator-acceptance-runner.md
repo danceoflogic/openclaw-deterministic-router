@@ -27,6 +27,12 @@ The runner captures original TEST router and agent settings in a private recover
 
 Each turn gets one `chat.send`, no automatic inference retry. The runner correlates the exact run ID and first 16 characters of the session-key SHA-256 with the existing TEST journal audit, checks the decision and terminal chat event, and records OpenClaw's reported resolved model when available. Per-case results are `PASS`, `FAIL`, or `INCONCLUSIVE`; a completed turn alone is not PASS. The private JSON report includes run IDs, hashes, tier, selected model, lock/application states, completion, timestamps, and restoration. Provider-side model identity remains **deferred** to the owner's turn-level OpenAI accounting; router `applied=true` does not establish it.
 
+If A completed with `PASS` but the first command withheld B after spending only one approved turn (for example, a terminal event briefly precedes the idle projection), do **not** repeat A. After confirming restoration and a new read-only `dry-run` result of `READY`, the same approved two-turn window may use the remaining turn through `resume-b`. This action requires the saved 0600 one-turn A report with matching session-key hash and verified restoration, arms only B, sends at most one B turn, and writes a combined report to `<reportFile>.resume.json`:
+
+```sh
+ROUTER_ACCEPTANCE_LIVE=YES ROUTER_ACCEPTANCE_APPROVED_TURNS=2 npm run acceptance:operator -- resume-b /PRIVATE/PATH/settings.json
+```
+
 In `finally`, the runner independently restores the original router mode/allowlist, original agent default, and its temporary A selection, then verifies configuration. A hard kill or a failed restoration leaves `<deviceFile>.restore.json` for recovery. Before any further test turn, run:
 
 ```sh

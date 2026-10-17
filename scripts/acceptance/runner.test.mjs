@@ -4,11 +4,12 @@ import { digest, discoverSessions, runAcceptance, validateOptions } from './runn
 import { assessEvidence, parseJournal } from './evidence.mjs';
 
 const options = { gatewayUrl: 'ws://127.0.0.1:19879', profile: 'router-test', maxTurns: 2, agentId: 'main', ownerProfileId: 'gateway-owner', sessionA: 'agent:main:dashboard:a', sessionB: 'agent:main:dashboard:b', prompt: 'Reply with one word: ready' };
-function mock({ initialModel = 'openai/gpt-6-luna', missingAudit = false, badManual = false, ignoreSolPatch = false, failSend = false, failRestore = false, failClear = false } = {}) {
+function mock({ initialModel = 'openai/gpt-6-luna', missingAudit = false, badManual = false, ignoreSolPatch = false, failSend = false, failRestore = false, failClear = false, lingerA = false } = {}) {
   const config = { agents: { defaults: { model: 'openai/gpt-6-sol' }, entries: { main: { model: initialModel } } }, plugins: { entries: { 'deterministic-router': { config: { mode: 'shadow', protectManualSelection: true, requireSessionKeyForAuto: true, autoSessionKeyHashes: [], models: { SIMPLE: { provider: 'openai', model: 'gpt-6-luna' } } } } } } };
   const original = structuredClone(config);
   const overrides = new Map(), calls = [];
   let hash = 'h0';
+  let aFinished = false;
   const rpc = {
     calls, config, original, overrides,
     async request(method, p) {
@@ -17,7 +18,7 @@ function mock({ initialModel = 'openai/gpt-6-luna', missingAudit = false, badMan
       if (method === 'config.get') return { hash, config: structuredClone(config) };
       if (method === 'deterministic-router.status') return { status: 'available', effectiveMode: router.mode, protectManualSelection: router.protectManualSelection, requireSessionKeyForAuto: router.requireSessionKeyForAuto, autoSessionAllowlistCount: router.autoSessionKeyHashes.length };
       if (method === 'sessions.list') return { sessions: [options.sessionA, options.sessionB, 'agent:main:main', 'agent:main:dashboard:anonymous'].map((key, index) => ({ key, agentId: 'main', createdVia: 'operator', createdActor: index === 3 ? null : { type: 'human', identity: { type: 'profile', id: 'gateway-owner' } } })) };
-      if (method === 'sessions.describe') return { sessionId: p.key + ':id', agentId: 'main', createdActor: { type: 'human', identity: { type: 'profile', id: 'gateway-owner' } }, hasActiveRun: false, modelOverrideSource: overrides.has(p.key) ? 'user' : 'default', providerOverride: overrides.has(p.key) ? 'openai' : undefined, modelOverride: overrides.get(p.key) };
+      if (method === 'sessions.describe') return { sessionId: p.key + ':id', agentId: 'main', createdActor: { type: 'human', identity: { type: 'profile', id: 'gateway-owner' } }, hasActiveRun: lingerA && aFinished && p.key === options.sessionA, modelOverrideSource: overrides.has(p.key) ? 'user' : 'default', providerOverride: overrides.has(p.key) ? 'openai' : undefined, modelOverride: overrides.get(p.key) };
       if (method === 'sessions.patch') {
         if (p.model === null && failClear) throw Error('clear denied');
         if (p.model) overrides.set(p.key, p.model.split('/')[1]); else overrides.delete(p.key);
@@ -42,7 +43,7 @@ function mock({ initialModel = 'openai/gpt-6-luna', missingAudit = false, badMan
       }
       throw Error(method);
     },
-    async waitForRun(runId) { return { state: 'final', resolvedModel: runId === 'run-a' ? 'openai/gpt-6-sol' : 'openai/gpt-6-luna' }; },
+    async waitForRun(runId) { if (runId === 'run-a') aFinished = true; return { state: 'final', resolvedModel: runId === 'run-a' ? 'openai/gpt-6-sol' : 'openai/gpt-6-luna' }; },
     async readEvidence(runId) {
       if (missingAudit) return [];
       const manual = runId === 'run-a';
@@ -77,6 +78,29 @@ test('A manual precedence and genuine B Sol-default to Luna pass; exact settings
   assert.equal(sends.length, 2);
   const beforeB = rpc.calls.findIndex(([method, p]) => method === 'chat.send' && p.sessionKey === options.sessionB);
   assert(rpc.calls.slice(0, beforeB).some(([method, p]) => method === 'config.patch' && p.raw.includes('"model":"openai/gpt-6-sol"')));
+});
+test('a terminal A event can precede idle projection without withholding B', async () => {
+  const rpc = mock({ lingerA: true });
+  const result = await runAcceptance(rpc, options);
+  assert.equal(result.result, 'PASS');
+  assert.equal(result.turns, 2);
+  assert.deepEqual(rpc.config, rpc.original);
+});
+test('B-only continuation spends only the remaining authorized turn', async () => {
+  const rpc = mock();
+  const previousReport = { turns: 1, restoration: 'PASS', cases: [{ id: 'manual-precedence', status: 'PASS', turnCompletion: 'completed', sessionKeyHash: digest(options.sessionA).slice(0, 16), runId: 'run-a' }] };
+  const result = await runAcceptance(rpc, { ...options, resumeB: true, previousReport });
+  assert.equal(result.result, 'PASS');
+  assert.equal(result.turns, 2);
+  assert.deepEqual(result.cases.map(x => x.status), ['PASS', 'PASS']);
+  assert.deepEqual(rpc.calls.filter(([method, p]) => method === 'chat.send').map(([, p]) => p.sessionKey), [options.sessionB]);
+  assert.equal(rpc.calls.filter(([method]) => method === 'sessions.patch').length, 0);
+  assert.deepEqual(rpc.config, rpc.original);
+});
+test('B-only continuation rejects an uncorrelated prior A report without inference', async () => {
+  const rpc = mock();
+  await assert.rejects(runAcceptance(rpc, { ...options, resumeB: true, previousReport: { turns: 1, restoration: 'PASS', cases: [{ id: 'manual-precedence', status: 'PASS', turnCompletion: 'completed', sessionKeyHash: 'wrong', runId: 'run-a' }] } }), /Prior A result/);
+  assert.equal(rpc.calls.filter(([method]) => method === 'chat.send').length, 0);
 });
 test('default Sol patch ignored: B is withheld; Luna-to-Luna cannot pass', async () => {
   const rpc = mock({ ignoreSolPatch: true });

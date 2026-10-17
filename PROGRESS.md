@@ -1,8 +1,10 @@
 # Current status — 2026-10-17 (PR #38 runner)
 
+- First owner-approved external operator run spent **one of two** TEST turns. A manual-precedence PASS: run `8f4baf6e-f19b-45e2-951b-270ee4478b56`, SIMPLE, `manualLock=true`, `applied=false`, completed and OpenClaw-resolved Sol. B was withheld because the A session still projected active immediately after its terminal event. Restoration PASS. A subsequent read-only dry-run returned READY with zero mutations/turns, confirming the active flag was transient. No B turn or retry was sent. Private report: `~/.openclaw-router-test/operator-acceptance-report.json` (0600).
+- The same runner now supports validated B-only continuation using the one remaining approved turn, without repeating A. Focused offline tests: **16/16** pass, including the terminal/idle race and B-only budget; typecheck and build pass. The new continuation has not yet been run as of this note.
+
 - PR #38 external operator A/B runner now enforces A agent-default Luna with persisted user Sol and B agent-default Sol with no override. It uses supported TEST session discovery, exact private session-key hashing, two bounded turns, TEST journal audit correlation, automatic PASS/FAIL/INCONCLUSIVE reporting, and finally-based restoration of router mode/allowlist, agent default, and temporary A selection. A private recovery file supports no-inference `restore` after an interruption. See [operator instructions](docs/operator-acceptance-runner.md).
-- Offline validation: 13 focused acceptance tests pass (including actor-filtered discovery, ignored B-default patch, no-retry, missing audit, and restoration failures); typecheck and build pass. No TEST Gateway calls, live inference, production changes, or merge were made for this implementation update. The prior six-turn budget remains exhausted. Next: one-time operator pairing if needed, read-only TEST dry-run, then seek a fresh explicit two-turn approval before `run`.
-- This runner is a PR #38 source change, **not** a claim of live Issue #7 acceptance. Owner-side provider accounting and later OFF/lifecycle/#8 checks remain separate.
+- The prior six-turn budget was exhausted; the owner separately approved this two-turn window. No production change or merge was made. Issue #7 remains open pending B; owner-side provider accounting and later OFF/lifecycle/#8 checks remain separate.
 
 ---
 

@@ -35,19 +35,19 @@ export async function discoverSessions(rpc, agentId, ownerProfileId) {
 
 export async function runAcceptance(rpc, options, observe = () => {}) {
   const o = validateOptions(options);
-  let armed = false, selectionArmed = false, agentArmed = false, selectionSessionId, primaryError, turns = 0, result = 'INCONCLUSIVE';
+  let armed = false, selectionArmed = false, agentArmed = false, selectionSessionId, primaryError, turns = o.resumeB ? 1 : 0, result = 'INCONCLUSIVE';
   let initial, initialRouter, originalAgent, sessionA = o.sessionA, sessionB = o.sessionB;
   const cases = [];
   const report = { result: 'INCONCLUSIVE', turns: 0, cases, providerVerification: 'DEFERRED', restoration: 'UNVERIFIED' };
   const call = (method, params = {}) => rpc.request(method, params);
   const status = () => call('deterministic-router.status');
   const config = () => call('config.get');
-  const session = async key => {
+  const session = async (key, requireIdle = true) => {
     const response = await call('sessions.describe', { key });
     const entry = response?.entry ?? response?.session ?? response;
     assert(entry?.sessionId && entry?.agentId === o.agentId, 'Session identity or agent scope unavailable');
     assert(key.startsWith(`agent:${o.agentId}:dashboard:`) && entry.createdActor?.type === 'human' && entry.createdActor?.identity?.type === 'profile' && entry.createdActor.identity.id === o.ownerProfileId, 'Session is not owned by the specified human profile');
-    assert(entry.hasActiveRun === false, 'Session is not idle');
+    if (requireIdle) assert(entry.hasActiveRun === false, 'Session is not idle');
     return entry;
   };
   const patchConfig = async (baseHash, fields, replacePaths = []) => call('config.patch', {
@@ -112,12 +112,33 @@ export async function runAcceptance(rpc, options, observe = () => {}) {
       [sessionA, sessionB] = found;
     }
     const a = await session(sessionA), b = await session(sessionB);
-    const stableSession = async (key, id) => { const value = await session(key); assert(value.sessionId === id, 'Session generation changed'); return value; };
+    const stableSession = async (key, id, requireIdle = true) => { const value = await session(key, requireIdle); assert(value.sessionId === id, 'Session generation changed'); return value; };
     assert(noUserOverride(a) && noUserOverride(b), 'Sessions must start at projected configured default');
     const hashA = digest(sessionA), hashB = digest(sessionB);
     const target = p.models?.SIMPLE;
     assert(target?.provider === 'openai' && target?.model === 'gpt-6-luna', 'SIMPLE target is not Luna');
     if (o.dryRun) return { result: 'READY', turns: 0, sessionKeyHashes: [hashA.slice(0, 16), hashB.slice(0, 16)], originalAgentDefault: originalAgent, providerVerification: 'DEFERRED', restoration: 'NOT_NEEDED', gatewayMutations: 0 };
+    if (o.resumeB) {
+      const prior = o.previousReport;
+      assert(prior?.turns === 1 && prior?.restoration === 'PASS' && prior.cases?.length === 1, 'B continuation requires a restored one-turn report');
+      const first = prior.cases[0];
+      assert(first.id === 'manual-precedence' && first.status === 'PASS' && first.turnCompletion === 'completed' && first.sessionKeyHash === hashA.slice(0, 16) && typeof first.runId === 'string', 'Prior A result is not a matching PASS');
+      cases.push(first);
+      report.turns = turns;
+      await o.onBaseline?.({ router: initialRouter, agentModel: originalAgent, agentId: o.agentId, sessionA, sessionAId: a.sessionId, sessionB, sessionBId: b.sessionId });
+      await setAgent('openai/gpt-6-sol');
+      assert(noUserOverride(await stableSession(sessionB, b.sessionId)), 'B gained an override');
+      armed = true;
+      await changeRouter('auto', [hashB]);
+      await verifyStatus('auto', 1);
+      const armedConfigB = plugin((await config()).config);
+      assert(armedConfigB?.mode === 'auto' && same(armedConfigB.autoSessionKeyHashes, [hashB]), 'B-only allowlist not persisted');
+      await send(sessionB, 'automatic-routing', 'openai/gpt-6-sol');
+      assert(noUserOverride(await stableSession(sessionB, b.sessionId, false)), 'B gained an override after turn');
+      report.result = cases[1].status;
+      report.turns = turns;
+      return report;
+    }
     await o.onBaseline?.({ router: initialRouter, agentModel: originalAgent, agentId: o.agentId, sessionA, sessionAId: a.sessionId, sessionB, sessionBId: b.sessionId });
     // Patch user override through the same persistent API used by the UI.
     await setAgent('openai/gpt-6-luna');
@@ -132,12 +153,12 @@ export async function runAcceptance(rpc, options, observe = () => {}) {
     const armedConfig = plugin((await config()).config);
     assert(armedConfig?.mode === 'auto' && JSON.stringify(armedConfig.autoSessionKeyHashes) === JSON.stringify([hashA, hashB]), 'Exact AUTO allowlist not persisted');
     await send(sessionA, 'manual-precedence', 'openai/gpt-6-luna');
-    assert(userModel(await stableSession(sessionA, a.sessionId)) === 'openai/gpt-6-sol', 'Manual override changed after turn');
+    assert(userModel(await stableSession(sessionA, a.sessionId, false)) === 'openai/gpt-6-sol', 'Manual override changed after turn');
     if (cases[0].status !== 'PASS') { report.result = cases[0].status; report.turns = turns; return report; }
     await setAgent('openai/gpt-6-sol');
     assert(noUserOverride(await stableSession(sessionB, b.sessionId)), 'B gained an override');
     await send(sessionB, 'automatic-routing', 'openai/gpt-6-sol');
-    assert(noUserOverride(await stableSession(sessionB, b.sessionId)), 'Automatic session gained an override');
+    assert(noUserOverride(await stableSession(sessionB, b.sessionId, false)), 'Automatic session gained an override');
     result = cases[1].status;
     report.result = result;
     report.turns = turns;
@@ -171,11 +192,11 @@ export async function runAcceptance(rpc, options, observe = () => {}) {
     if (selectionArmed) {
       try {
         // Do not clear a changed generation or an unrelated user selection.
-        const cleanupA = await session(sessionA);
+        const cleanupA = await session(sessionA, false);
         assert(cleanupA.sessionId === selectionSessionId, 'A session generation changed before cleanup');
         if (userModel(cleanupA) === 'openai/gpt-6-sol') {
           await call('sessions.patch', { key: sessionA, model: null });
-          assert(noUserOverride(await session(sessionA)), 'A selection cleanup not persisted');
+          assert(noUserOverride(await session(sessionA, false)), 'A selection cleanup not persisted');
         } else assert(noUserOverride(cleanupA), 'A selection changed; refusing to clear a different user choice');
       } catch (error) {
         cleanupErrors.push(new Error('A selection cleanup failed; verify TEST session manually', { cause: error }));
