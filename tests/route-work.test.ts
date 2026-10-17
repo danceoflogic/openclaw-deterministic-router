@@ -9,6 +9,6 @@ describe("routeWork", () => {
       DEFAULT_PLUGIN_CONFIG,
     );
     expect(decision.effectiveTier).toBe("REASONING");
-    expect(decision.target).toEqual({ provider: "openai", model: "gpt-5.6-sol" });
+    expect(decision.target).toEqual({ provider: "openai", model: "gpt-6-sol" });
   });
 });

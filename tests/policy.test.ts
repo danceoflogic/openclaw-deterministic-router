@@ -18,10 +18,10 @@ describe("deterministic policy", () => {
   it("keeps shadow mode and maps every effective tier independently", () => {
     expect(DEFAULT_PLUGIN_CONFIG.mode).toBe("shadow");
     expect(DEFAULT_PLUGIN_CONFIG.models).toEqual({
-      SIMPLE: { provider: "telnyx", model: "MiniMaxAI/MiniMax-M3-MXFP8" },
-      MEDIUM: { provider: "openai", model: "gpt-5.6-luna" },
-      COMPLEX: { provider: "openai", model: "gpt-5.6-terra" },
-      REASONING: { provider: "openai", model: "gpt-5.6-sol" },
+      SIMPLE: { provider: "openai", model: "gpt-6-luna" },
+      MEDIUM: { provider: "openai", model: "gpt-6-luna" },
+      COMPLEX: { provider: "openai", model: "gpt-6-sol" },
+      REASONING: { provider: "openai", model: "gpt-6-sol" },
     });
   });
 });

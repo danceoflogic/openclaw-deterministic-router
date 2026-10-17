@@ -1,10 +1,10 @@
 import type { ModelTarget, RouterPluginConfig, RouterTier } from "./types.js";
 
 const DEFAULT_MODELS: Record<RouterTier, ModelTarget> = {
-  SIMPLE: { provider: "telnyx", model: "MiniMaxAI/MiniMax-M3-MXFP8" },
-  MEDIUM: { provider: "openai", model: "gpt-5.6-luna" },
-  COMPLEX: { provider: "openai", model: "gpt-5.6-terra" },
-  REASONING: { provider: "openai", model: "gpt-5.6-sol" },
+  SIMPLE: { provider: "openai", model: "gpt-6-luna" },
+  MEDIUM: { provider: "openai", model: "gpt-6-luna" },
+  COMPLEX: { provider: "openai", model: "gpt-6-sol" },
+  REASONING: { provider: "openai", model: "gpt-6-sol" },
 };
 
 export const DEFAULT_PLUGIN_CONFIG: RouterPluginConfig = {
