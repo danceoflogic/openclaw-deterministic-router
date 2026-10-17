@@ -114,7 +114,7 @@ Issues:
 
 ### Owner decision — 2026-10-17: proportionate functional acceptance
 
-**Current TEST target:** the updated OpenClaw 2026.10.4 environment is accepted. Do not revert simply because earlier evidence and instructions refer to 2026.9.8. Keep production separate. PR #36 remains an unmerged implementation candidate until separately reviewed.
+**Current TEST target:** the updated OpenClaw 2026.10.4 environment is accepted. Do not revert simply because earlier evidence and instructions refer to 2026.9.8. Keep production separate. PR #36 merged on 17 October 2026, aligning source defaults to GPT-6 Luna/Sol without deploying or enabling AUTO.
 
 Issue #7 has **two explicitly distinct outcomes**:
 
