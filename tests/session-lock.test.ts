@@ -90,6 +90,18 @@ describe("session model-selection lock registry", () => {
       }),
     ).toBe("unknown");
     expect(registry.getState("s1")).toBe("unknown");
+
+    for (const malformed of [
+      { modelOverrideSource: "default" },
+      { sessionId: "generation", modelOverrideSource: "invalid" },
+      { sessionId: "generation", modelOverrideSource: "user", providerOverride: "openai" },
+      { sessionId: "generation", modelOverrideSource: "user", modelOverride: "gpt-6-sol" },
+      { sessionId: "generation", modelOverrideSource: "user", modelOverride: null, providerOverride: "openai" },
+    ]) {
+      registry.set("s1", { provider: "openai", model: "gpt-6-sol" });
+      expect(reconcilePersistedSessionEntry(registry, "s1", malformed)).toBe("unknown");
+      expect(registry.getState("s1")).toBe("unknown");
+    }
   });
 
   it("keeps reset/recreated sessions isolated from another session's lock", () => {

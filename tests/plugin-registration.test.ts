@@ -642,6 +642,41 @@ describe("plugin registration contract", () => {
     ]));
   });
 
+  it("fails closed on malformed identity/selection and only resumes for a known-clear incarnation", () => {
+    const on = vi.fn();
+    const info = vi.fn();
+    const key = "allowlisted-lifecycle-key";
+    let entry: unknown = { sessionId: "first", providerOverride: "openai", modelOverride: "gpt-6-sol", modelOverrideSource: "user" };
+    const getSessionEntry = vi.fn(() => entry);
+    plugin.register({
+      pluginConfig: { mode: "auto", autoSessionKeyHashes: [createHash("sha256").update(key).digest("hex")] },
+      registerHook: vi.fn(), on,
+      runtime: { agent: { session: { getSessionEntry } } },
+      logger: { info, warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    } as never);
+    const resolve = on.mock.calls.find(([name]) => name === "before_model_resolve")?.[1] as
+      (event: { prompt: string }, ctx: { sessionKey: string; runId: string; agentId?: string }) => unknown;
+    const probe = (runId: string, agentId?: string) => resolve({ prompt: "Reply with one word: ready" }, { sessionKey: key, runId, agentId });
+    expect(probe("locked", "agent")).toBeUndefined();
+    for (const [runId, value] of [
+      ["missing", undefined],
+      ["no-id", { modelOverrideSource: "default" }],
+      ["partial", { sessionId: "second", modelOverrideSource: "user", providerOverride: "openai" }],
+      ["invalid-source", { sessionId: "second", modelOverrideSource: "other" }],
+    ] as const) {
+      entry = value;
+      expect(probe(runId, "agent")).toBeUndefined();
+    }
+    entry = { sessionId: "second", modelOverrideSource: "default" };
+    expect(probe("no-agent")).toBeUndefined();
+    expect(probe("clear-after-recreate", "agent")).toMatchObject({ modelOverride: expect.any(String) });
+    const audits = info.mock.calls.map(([message]) => typeof message === "string" && message.startsWith("[deterministic-router] ")
+      ? JSON.parse(message.slice("[deterministic-router] ".length)) : null).filter(Boolean);
+    expect(audits.filter((x) => x.applied).map((x) => x.runId)).toEqual(["clear-after-recreate"]);
+    expect(audits.filter((x) => ["missing", "no-id", "partial", "invalid-source", "no-agent"].includes(x.runId))
+      .every((x) => x.manualLock === false && x.applied === false)).toBe(true);
+  });
+
   it("fails closed for every session not explicitly allowlisted for AUTO", () => {
     const on = vi.fn();
     const info = vi.fn();

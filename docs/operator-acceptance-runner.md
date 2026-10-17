@@ -60,3 +60,29 @@ The sequence uses A for all three short turns, keeps B clear and untouched as an
 This window does **not** test reset/delete/recreation or unknown-state fail-closed behaviour, and does not prove provider-level model identity. Those remain separate acceptance items with their own budget and supported lifecycle procedure.
 
 **Observed 17 October 2026:** the separately approved three-turn TEST controls window completed `PASS` (clear/AUTO, shadow, OFF), with all three turns correlated to completed run IDs, `restoration=PASS`, and a post-run read-only `READY` check. The entire 3/3 budget was consumed. The sanitized evidence summary is in `PROGRESS.md`; the full report remains private at the configured `<reportFile>.controls.json`. Do not rerun this sequence without a new budget.
+
+## Pending lifecycle / unknown-state gate
+
+The five prior successful TEST turns are established evidence and are **not** repeated. OpenClaw 2026.10.4 supports `sessions.create`, `sessions.reset`, and `sessions.delete`. Reset and delete reject a locked user model selection. Therefore the lifecycle runner persists then explicitly clears A's Sol choice before resetting it; reset must change its lifecycle identity while retaining a clear selection. It deletes and recreates A with the same key, requiring a new identity/generation and a clear selection. An independent B keeps a user Sol selection through A's lifecycle and is checked by a final router turn. Each decisive turn is correlated by run ID and session hash to the TEST journal and OpenClaw completion. The router's process-local stale-lock and missing/malformed authoritative-state behaviours are regression-tested offline; the runner does **not** corrupt the live session store or claim a live unknown-state pass.
+
+Copy the private controls settings to `/home/stduser/.openclaw-router-test/operator-acceptance-settings-lifecycle.json`, set `"lifecycle":true` and `"maxTurns":3`, and remove `sessionA`/`sessionB`. This private 0600 file is already prepared on the TEST operator device. The same paired device and fixed short prompt are reused. The live action generates **two new disposable TEST dashboard keys** through `sessions.create` with no initial message, verifies both are idle, operator-created and human-profile-attributed, then operates only on them. It never resets or deletes the previous acceptance sessions; no manual key copying or Control UI session creation is needed. If attribution is not returned as expected, it stops before reset, deletion or inference and retains the recovery record for inspection.
+
+Read-only preflight in the operator-opened terminal:
+
+```sh
+cd /home/stduser/src/openclaw-deterministic-router-pr38 && npm run acceptance:operator -- dry-run-lifecycle /home/stduser/.openclaw-router-test/operator-acceptance-settings-lifecycle.json
+```
+
+This makes zero inference or Gateway mutations. It checks the exact TEST target/profile, authenticated operator connection, guarded published SHADOW status, both protections, SIMPLE→Luna, Sol/Luna catalogue availability, supported lifecycle methods, explicit agent default, and absence of a recovery file. Because the disposable sessions do not yet exist, their eventual human attribution cannot be attested read-only; the preflight reports `INCONCLUSIVE` with that precise remaining condition, not a false READY.
+
+**Proposed live budget: exactly three completed turns, with no retries.** Turn 1 on reset A proves AUTO resumes only after a clear authoritative selection in the new lifecycle generation. Turn 2 on deleted/recreated A proves its reused key does not inherit an old lock and AUTO applies from a clear new identity. Turn 3 on independent B proves its manual Sol lock remains isolated and protects against AUTO while A changes. The earlier manual-selection A/B and controls turns are not repeated. Readbacks prove the reset, delete/recreate identity changes and B selection continuity without extra inference. A failed/inconclusive case stops later sends. This three-turn proposal is **not approved** by the exhausted 2/2 and 3/3 windows.
+
+After the owner explicitly approves this new budget **and disposable TEST lifecycle operations**, the single bounded command is:
+
+```sh
+cd /home/stduser/src/openclaw-deterministic-router-pr38 && ROUTER_ACCEPTANCE_LIVE=YES ROUTER_ACCEPTANCE_APPROVED_TURNS=3 npm run acceptance:operator -- run-lifecycle /home/stduser/.openclaw-router-test/operator-acceptance-settings-lifecycle.json
+```
+
+The report is private `<reportFile>.lifecycle.json`. The runner restores and verifies the exact router mode/allowlist, original agent default and temporary B selection even after an ordinary failure. It leaves the newly created disposable sessions in TEST as inspectable evidence; it does not delete them as incidental cleanup. A hard interruption, failed restoration, or unconfirmed creation that may have persisted leaves the existing private `<deviceFile>.restore.json` recovery file. Use the existing `restore` action with the lifecycle settings; it validates attribution/generation before clearing temporary Sol choices, restores TEST config, and never deletes a changed session. An unconfirmed but present session requires operator inspection before recovery can clear the record. Do not run another live window while recovery is pending.
+
+**Evidence boundary:** Live unknown-state corruption is intentionally not attempted. The offline fault tests establish that a missing session entry, missing identity/agent, partial override, or invalid source clears stale cache state and yields. Actual provider identity remains deferred to owner accounting. Issue #7 remains open until the lifecycle live gate genuinely passes; this runner does not authorize general AUTO, PR merge, production changes, or Issue #8.

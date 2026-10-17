@@ -89,3 +89,6 @@
 - `npm run check` passes: typecheck, 24 tests, ESM build, and declaration build.
 - OpenClaw 2026.9.6 runtime-loader smoke passes in an isolated temporary state/config.
 - Native Codex provider-call-per-hidden-request identity remains unavailable by supported contract; this is documented as an accepted runtime-model limitation for Issue #2, not a blocker.
+# Issue #7 lifecycle preparation — 17 October 2026
+
+PR #38 now contains an **unexecuted** three-turn TEST lifecycle sequence using supported external operator `sessions.create/reset/delete`, generation and human-attribution guards, exact session allowlisting, correlated journal evidence and existing private recovery. The read-only operator dry-run connected to TEST and checked published guarded SHADOW, model catalogue, and lifecycle-method discovery with **zero inference or mutations**. It reports `INCONCLUSIVE` only because newly generated disposable session attribution can be verified only after creation in an owner-approved live window. Focused offline fault tests cover missing/malformed authoritative state and stale-lock removal. The previously passed five TEST turns are unchanged. The new three-turn budget and disposable lifecycle operations still need explicit owner approval; no live lifecycle acceptance is claimed.
