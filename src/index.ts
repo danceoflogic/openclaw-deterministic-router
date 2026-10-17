@@ -35,7 +35,10 @@ function reconcileCurrentSession(
   sessionKey: string | undefined,
   agentId: string | undefined,
 ): SessionLockState {
-  if (!sessionKey) return "unknown";
+  if (!sessionKey || !agentId) {
+    if (sessionKey) locks.markUnknown(sessionKey);
+    return "unknown";
+  }
 
   const sessionApi = (api as SessionReaderApi).runtime?.agent?.session;
   if (!sessionApi || typeof sessionApi.getSessionEntry !== "function") {

@@ -82,6 +82,9 @@ const MODEL_OVERRIDE_SOURCES = new Set(["auto", "user", "default"]);
  */
 function resolvePersistedSelection(sessionEntry: unknown): PersistedSelectionResolution {
   if (!isRecord(sessionEntry) || isPromiseLike(sessionEntry)) return { state: "unknown" };
+  // A projection without its durable session identity cannot establish which
+  // incarnation owns the selection (including an apparently clear selection).
+  if (!isNonEmptyString(sessionEntry.sessionId)) return { state: "unknown" };
 
   const source = sessionEntry.modelOverrideSource;
   if (source !== undefined && (typeof source !== "string" || !MODEL_OVERRIDE_SOURCES.has(source))) {
@@ -108,11 +111,13 @@ function resolvePersistedSelection(sessionEntry: unknown): PersistedSelectionRes
     return source === undefined ? { state: "clear" } : { state: "unknown" };
   }
 
+  if (!hasProvider || !hasModel) return { state: "unknown" };
+
   return {
     state: "locked",
     provider: rawProvider,
     model: rawModel,
-    sessionId: firstString(sessionEntry.sessionId),
+    sessionId: sessionEntry.sessionId,
   };
 }
 
