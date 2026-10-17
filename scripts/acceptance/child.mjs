@@ -6,7 +6,8 @@ const router = config => config?.plugins?.entries?.['deterministic-router']?.con
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const childPrefix = agentId => `agent:${agentId}:subagent:`;
-export const ISSUE8_PARENT_PROMPT = 'Prove formally, step by step, whether a replicated cache invalidation protocol with concurrent writes, delayed messages, and crash recovery can guarantee no stale reads. Derive the safe update ordering and provide a counterexample to an unsafe ordering. Spawn exactly one isolated subagent with no model override to read the first line of README.md and return only that line. Wait for its result before finishing. Do not edit files, send external messages, or spawn additional agents.';
+export const isOpenClawSpawnedChild = (entry, agentId, parentKey, since) => entry?.key?.startsWith(childPrefix(agentId)) && entry.parentSessionKey === parentKey && entry.createdVia === 'spawn' && entry.createdAt >= since;
+export const ISSUE8_PARENT_PROMPT = 'Prove formally, step by step, whether a replicated cache invalidation protocol with concurrent writes, delayed messages, and crash recovery can guarantee no stale reads. Derive the safe update ordering and provide a counterexample to an unsafe ordering. For the independent child step, call the OpenClaw sessions_spawn tool exactly once with runtime="subagent", context="isolated", and a task to read the first line of README.md and return only that line. Omit agentId so the isolated child targets this TEST main agent. Do not pass a model or other model-selection override. Do not use the native Codex spawn_agent tool for this experiment. Wait for the OpenClaw child result before finishing. Do not edit files, send external messages, or spawn additional agents.';
 export const ISSUE8_CHILD_PROMPT = 'Hi. What is the first line of README.md?';
 
 function resolvedModel(records, decision) {
@@ -69,6 +70,8 @@ export async function runChildPhase(rpc, options, phase, prior) {
     assert(parent?.sessionId && parent.agentId === o.agentId && parent.createdVia === 'operator' && parent.createdActor?.type === 'human' && parent.createdActor?.identity?.type === 'profile' && parent.createdActor.identity.id === o.ownerProfileId && parent.hasActiveRun === false, 'Human-owned idle parent unavailable');
     assert((parent.modelOverrideSource === null || parent.modelOverrideSource === 'default') && !parent.modelOverride && !parent.providerOverride, 'Parent has a manual model selection or unknown selection state');
     if (phase === 'parent') {
+      const tools = await call('tools.effective', { sessionKey: o.parentSession });
+      assert(tools?.agentId === o.agentId && tools.toolAccess?.checked === 'live-session' && tools.toolAccess.tools?.some(tool => tool.id === 'sessions_spawn' && tool.status === 'available') && tools.groups?.some(group => group.tools?.some(tool => tool.id === 'sessions_spawn' && tool.source === 'core' && tool.deniedBySession !== true)), 'OpenClaw sessions_spawn unavailable in TEST parent effective tool preview');
       assert(!o.recoveryPending, 'Outstanding private recovery file');
       if (o.dryRun) return { ...report, result: 'READY', restoration: 'NOT_NEEDED', gatewayMutations: 0 };
       await o.onBaseline?.({ kind: 'child', router: baseline, agentModel: defaultModel, agentId: o.agentId, sessionA: o.parentSession, sessionAId: parent.sessionId });
@@ -85,14 +88,14 @@ export async function runChildPhase(rpc, options, phase, prior) {
       for (let attempt = 0; attempt < 40; attempt++) {
         const page = await call('sessions.list', { agentId: o.agentId, limit: 200, excludeCron: true, excludeSystem: true });
         assert(Array.isArray(page?.sessions) && page.sessions.length < 200, 'Bounded child inventory unavailable');
-        children = page.sessions.filter(x => x.key?.startsWith(childPrefix(o.agentId)) && x.parentSessionKey === o.parentSession && x.createdVia === 'spawn' && x.createdAt >= Date.parse(startedAt));
+        children = page.sessions.filter(x => isOpenClawSpawnedChild(x, o.agentId, o.parentSession, Date.parse(startedAt)));
         if (children.length) break;
         await pause(250);
       }
       assert(children.length === 1, 'Expected exactly one newly spawned child');
       let child = await describe(children[0].key);
       for (let attempt = 0; child?.hasActiveRun && attempt < 80; attempt++) { await pause(250); child = await describe(children[0].key); }
-      assert(child?.sessionId && child.agentId === o.agentId && child.createdVia === 'spawn' && child.createdActor?.type === 'agent' && child.createdActor.id === o.agentId && child.parentSessionKey === o.parentSession && child.hasActiveRun === false, 'Child provenance or idle state mismatch');
+      assert(child?.sessionId && child.sessionId !== parent.sessionId && child.agentId === o.agentId && child.spawnDepth === parent.spawnDepth + 1 && child.createdVia === 'spawn' && child.createdActor?.type === 'agent' && child.createdActor.id === o.agentId && child.parentSessionKey === o.parentSession && child.hasActiveRun === false, 'Child provenance or idle state mismatch');
       assert(child.modelOverrideSource === 'auto' && child.modelProvider === 'openai' && child.model === 'gpt-6-sol', 'Child did not inherit an automatic Sol starting model');
       let records = await rpc.readAllEvidence(startedAt);
       const parentHash = digest(o.parentSession).slice(0, 16), childHash = digest(children[0].key).slice(0, 16);
@@ -101,6 +104,7 @@ export async function runChildPhase(rpc, options, phase, prior) {
       const childDecisions = decisions.filter(x => x.sessionKeyHash === childHash);
       assert(p && childDecisions.length === 1, 'Independent parent/child router decisions not uniquely correlated');
       const d = childDecisions[0];
+      assert(typeof child.lastRunId === 'string' && child.lastRunId === d.runId && child.abortedLastRun !== true, 'Child session last run does not match independent router decision');
       const runIds = new Set(decisions.map(x => x.runId));
       report.turns = runIds.size;
       report.cases = [
@@ -109,14 +113,14 @@ export async function runChildPhase(rpc, options, phase, prior) {
       ];
       assert(report.turns >= 2 && report.turns <= 3 && p.applied === true && ['COMPLEX','REASONING'].includes(p.effectiveTier) && p.selectedProvider === 'openai' && p.selectedModel === 'gpt-6-sol' && report.cases[0].resolvedModel === 'openai/gpt-6-sol', 'Parent strong-model evidence or turn budget mismatch');
       assert(d.agentId === o.agentId && d.runId !== ack.runId && d.manualLock === false && d.applied === false && d.reason === 'session is not allowlisted for AUTO; fail-closed without override' && report.cases[1].resolvedModel === 'openai/gpt-6-sol', 'Child bootstrap or OpenClaw resolution not confirmed');
-      report.child = { key: children[0].key, sessionId: child.sessionId, parentKey: o.parentSession, parentSessionId: parent.sessionId };
+      report.child = { key: children[0].key, sessionId: child.sessionId, runId: d.runId, parentKey: o.parentSession, parentSessionId: parent.sessionId };
       report.result = 'PASS';
     } else {
       assert(prior?.result === 'PASS' && prior?.restoration === 'PASS' && prior?.phase === 'parent' && prior.turns >= 2 && prior.turns <= 3, 'Verified parent report required');
       const key = prior.child?.key;
-      assert(typeof key === 'string' && key.startsWith(childPrefix(o.agentId)) && prior.child.parentKey === o.parentSession && prior.child.parentSessionId === parent.sessionId, 'Saved child scope/parent changed');
+      assert(typeof key === 'string' && key.startsWith(childPrefix(o.agentId)) && typeof prior.child.runId === 'string' && prior.child.parentKey === o.parentSession && prior.child.parentSessionId === parent.sessionId, 'Saved child scope/parent changed');
       const child = await describe(key);
-      assert(child?.sessionId === prior.child.sessionId && child.agentId === o.agentId && child.createdVia === 'spawn' && child.createdActor?.type === 'agent' && child.createdActor.id === o.agentId && child.parentSessionKey === o.parentSession && child.hasActiveRun === false && child.modelOverrideSource === 'auto', 'Child generation/provenance/selection changed');
+      assert(child?.sessionId === prior.child.sessionId && child.lastRunId === prior.child.runId && child.agentId === o.agentId && child.createdVia === 'spawn' && child.createdActor?.type === 'agent' && child.createdActor.id === o.agentId && child.parentSessionKey === o.parentSession && child.hasActiveRun === false && child.modelOverrideSource === 'auto', 'Child generation/provenance/selection changed');
       assert(!o.recoveryPending, 'Outstanding private recovery file');
       if (o.dryRun) return { ...report, result: 'READY', restoration: 'NOT_NEEDED', gatewayMutations: 0, remainingTurns: 4 - prior.turns };
       assert(prior.turns < 4 && !o.shouldStop?.(), 'Four-turn ceiling exhausted or operator interrupted');

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { runChildPhase, ISSUE8_PARENT_PROMPT, ISSUE8_CHILD_PROMPT } from './child.mjs';
+import { runChildPhase, ISSUE8_PARENT_PROMPT, ISSUE8_CHILD_PROMPT, isOpenClawSpawnedChild } from './child.mjs';
 import { digest } from './runner.mjs';
 import { classifyByRules, DEFAULT_ROUTING_CONFIG } from '@blockrun/router-core';
 
@@ -13,13 +13,23 @@ test('Issue #8 exact prompts classify as strong parent and SIMPLE child', () => 
   const classify = prompt => classifyByRules(prompt, undefined, Math.ceil(prompt.length / 4), DEFAULT_ROUTING_CONFIG.scoring).tier;
   assert.equal(classify(ISSUE8_PARENT_PROMPT), 'REASONING');
   assert.equal(classify(ISSUE8_CHILD_PROMPT), 'SIMPLE');
+  assert.match(ISSUE8_PARENT_PROMPT, /OpenClaw sessions_spawn/);
+  assert.match(ISSUE8_PARENT_PROMPT, /Do not use the native Codex spawn_agent/);
+  assert.match(ISSUE8_PARENT_PROMPT, /Do not pass a model/);
 });
 
-function fixture({ manualChild = false } = {}) {
+test('Issue #8 child inventory rejects a native Codex child and false spawn provenance', () => {
+  const row = { key: childKey, parentSessionKey: parentKey, createdVia: 'spawn', createdAt: 100 };
+  assert.equal(isOpenClawSpawnedChild(row, 'main', parentKey, 99), true);
+  assert.equal(isOpenClawSpawnedChild({ ...row, key: 'codex-thread:native-child' }, 'main', parentKey, 99), false);
+  assert.equal(isOpenClawSpawnedChild({ ...row, createdVia: 'codex-native' }, 'main', parentKey, 99), false);
+});
+
+function fixture({ manualChild = false, spawnTool = true, childRunId = 'child-bootstrap-run' } = {}) {
   const config = { agents: { entries: { main: { model: 'openai/gpt-6-luna' } } }, plugins: { entries: { 'deterministic-router': { config: structuredClone(baseline) } } } };
   let sent = 0, patches = 0;
-  const parent = { sessionId: 'parent-generation', agentId: 'main', createdVia: 'operator', createdActor: { type: 'human', identity: { type: 'profile', id: 'gateway-owner' } }, hasActiveRun: false, modelOverrideSource: 'default' };
-  const child = { sessionId: 'child-generation', agentId: 'main', createdVia: 'spawn', createdActor: { type: 'agent', id: 'main' }, parentSessionKey: parentKey, hasActiveRun: false, modelOverrideSource: manualChild ? 'user' : 'auto', modelProvider: 'openai', model: 'gpt-6-sol' };
+  const parent = { sessionId: 'parent-generation', spawnDepth: 0, agentId: 'main', createdVia: 'operator', createdActor: { type: 'human', identity: { type: 'profile', id: 'gateway-owner' } }, hasActiveRun: false, modelOverrideSource: 'default' };
+  const child = { sessionId: 'child-generation', spawnDepth: 1, lastRunId: childRunId, agentId: 'main', createdVia: 'spawn', createdActor: { type: 'agent', id: 'main' }, parentSessionKey: parentKey, hasActiveRun: false, modelOverrideSource: manualChild ? 'user' : 'auto', modelProvider: 'openai', model: 'gpt-6-sol' };
   const record = (key, runId, model, applied, reason) => {
     const decisionId = `${runId}-decision`;
     return [
@@ -31,6 +41,7 @@ function fixture({ manualChild = false } = {}) {
     async request(method, params) {
       if (method === 'config.get') return { hash: `hash-${patches}`, config };
       if (method === 'deterministic-router.status') { const r = config.plugins.entries['deterministic-router'].config; return { status: 'available', effectiveMode: r.mode, autoSessionAllowlistCount: r.autoSessionKeyHashes.length, protectManualSelection: true, requireSessionKeyForAuto: true }; }
+      if (method === 'tools.effective') return { agentId: 'main', toolAccess: { checked: 'live-session', tools: spawnTool ? [{ id: 'sessions_spawn', status: 'available' }] : [] }, groups: [{ tools: spawnTool ? [{ id: 'sessions_spawn', source: 'core' }] : [] }] };
       if (method === 'sessions.describe') return { entry: params.key === parentKey ? parent : params.key === childKey && sent ? child : null };
       if (method === 'sessions.list') return { sessions: sent ? [{ key: childKey, parentSessionKey: parentKey, createdVia: 'spawn', createdAt: Date.now() }] : [] };
       if (method === 'config.patch') { const patch = JSON.parse(params.raw); if (patch.agents) Object.assign(config.agents.entries.main, patch.agents.entries.main); if (patch.plugins) Object.assign(config.plugins.entries['deterministic-router'].config, patch.plugins.entries['deterministic-router'].config); patches++; return {}; }
@@ -50,6 +61,9 @@ test('Issue #8 dry-run is read-only and requires exactly four approved turns', a
   assert.equal(result.result, 'READY');
   assert.deepEqual(rpc.counts(), { sent: 0, patches: 0 });
   await assert.rejects(runChildPhase(rpc, { ...settings, maxTurns: 3, dryRun: true }, 'parent'), /four-turn ceiling/);
+  const absent = await runChildPhase(fixture({ spawnTool: false }), { ...settings, dryRun: true }, 'parent');
+  assert.equal(absent.result, 'BLOCKED');
+  assert.match(absent.error, /sessions_spawn unavailable/);
 });
 
 test('Issue #8 parent and exact-key child follow-up restore SHADOW after each phase', async () => {
@@ -58,6 +72,7 @@ test('Issue #8 parent and exact-key child follow-up restore SHADOW after each ph
   assert.equal(parent.result, 'PASS');
   assert.equal(parent.restoration, 'PASS');
   assert.equal(parent.turns, 2);
+  assert.equal(parent.child.runId, 'child-bootstrap-run');
   assert.equal(parent.cases[1].resolvedModel, 'openai/gpt-6-sol');
   const followup = await runChildPhase(rpc, settings, 'followup', parent);
   assert.equal(followup.result, 'PASS');
@@ -67,9 +82,15 @@ test('Issue #8 parent and exact-key child follow-up restore SHADOW after each ph
   assert.deepEqual(rpc.counts(), { sent: 2, patches: 6 });
 });
 
+test('Issue #8 cannot pass a child decision from another session run', async () => {
+  const rpc = fixture({ childRunId: 'unrelated-run' });
+  await assert.rejects(runChildPhase(rpc, settings, 'parent'), /Child session last run does not match/);
+  assert.deepEqual(rpc.counts(), { sent: 1, patches: 4 });
+});
+
 test('Issue #8 refuses follow-up after child selection changes', async () => {
   const rpc = fixture({ manualChild: true });
-  const prior = { result: 'PASS', restoration: 'PASS', phase: 'parent', turns: 2, child: { key: childKey, sessionId: 'child-generation', parentKey, parentSessionId: 'parent-generation' } };
+  const prior = { result: 'PASS', restoration: 'PASS', phase: 'parent', turns: 2, child: { key: childKey, sessionId: 'child-generation', runId: 'child-bootstrap-run', parentKey, parentSessionId: 'parent-generation' } };
   await assert.rejects(runChildPhase(rpc, settings, 'followup', prior), /Child generation\/provenance\/selection changed/);
   assert.deepEqual(rpc.counts(), { sent: 0, patches: 0 });
 });
