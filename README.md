@@ -195,7 +195,7 @@ After the bounded AUTO tests, restore `shadow`. Release readiness adds measured 
 6. Run shadow mode against representative real workloads.
 7. Enable controlled `auto` mode only after the gates pass.
 
-See [`docs/implementation-plan.md`](docs/implementation-plan.md) and the executable [`router acceptance test protocol`](docs/acceptance-test-protocol.md).
+See [`docs/implementation-plan.md`](docs/implementation-plan.md), the executable [`router acceptance test protocol`](docs/acceptance-test-protocol.md), and the [external operator TEST acceptance runner](docs/operator-acceptance-runner.md).
 
 ## Comparative research
 

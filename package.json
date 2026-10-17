@@ -37,7 +37,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run typecheck && npm test && npm run build",
+    "acceptance:operator": "node scripts/acceptance/cli.mjs",
+    "test:acceptance:operator": "node --test scripts/acceptance/runner.test.mjs"
   },
   "keywords": [
     "openclaw",
@@ -71,7 +73,9 @@
     "openclaw": "2026.9.8",
     "tsup": "^8.0.0",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.2"
+    "vitest": "^5.0.2",
+    "@openclaw/gateway-client": "2026.10.4",
+    "@openclaw/gateway-protocol": "2026.10.4"
   },
   "publishConfig": {
     "access": "public"
