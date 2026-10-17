@@ -1,4 +1,14 @@
-# Current status — 2026-10-15
+# Current status — 2026-10-17
+
+**Bounded TEST routing checks passed; Issue #7 remains open.** On isolated OpenClaw 2026.10.4 TEST, the owner-approved two-turn A/B window verified manual Sol precedence over AUTO and a genuine default-Sol to routed-Luna switch. A separately approved three-turn window verified clearing the manual choice resumes AUTO, `shadow` logs without applying the Luna candidate, and `off` emits no router decision. Both windows used their exact ceilings (2/2 and 3/3), with no retries. Correlated router audits, persisted selection/default state, completed turns, and OpenClaw-reported resolved models support these **functional** results. See [Issue #7](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7#issuecomment-6239935075) and its [controls result](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7#issuecomment-6240041352).
+
+**Containment and source state:** The runner restored the captured TEST router mode and allowlist, agent default, and temporary selection after each window; post-run read-only preflight returned READY, and no recovery file remains. [PR #38](https://github.com/danceoflogic/openclaw-deterministic-router/pull/38) contains the external operator runner and detailed private-report procedure; it is open and unmerged. [PR #36](https://github.com/danceoflogic/openclaw-deterministic-router/pull/36) is also open and unmerged. These TEST observations do not imply that either PR was merged, that production changed, or that general AUTO rollout is approved.
+
+**Still open:** Live lifecycle/reset/deletion/recreation and unknown-state fail-closed acceptance for #7; independent child routing (#8); release gates (#9, #12). Provider-side model identity is deferred to the owner's turn-level accounting logs and must not be inferred from router `applied=true` or OpenClaw's resolved-model report. No further inference turns remain in either approved TEST window. Next work is a separately bounded lifecycle/fail-closed plan and owner-side accounting review, while retaining guarded `shadow`.
+
+---
+
+## Historical status — 2026-10-15
 
 **Source versus deployment:** [PR #33](https://github.com/danceoflogic/openclaw-deterministic-router/pull/33) merged into `main` on 15 October 2026. [PR #36](https://github.com/danceoflogic/openclaw-deterministic-router/pull/36), migrating committed model defaults to GPT-6 Luna/Sol, is open and not merged. The merged `main` mappings and the already-deployed Worktop GPT-6 shadow bundle must not be conflated.
 
