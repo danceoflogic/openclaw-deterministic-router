@@ -69,13 +69,14 @@ try {
   clearTimeout(timeout);
   const rpc = {
     request: (method, params) => client.request(method, params),
-    waitForRun: async (runId, _key, ms) => {
+    waitForRun: async (runId, key, ms) => {
       if (interrupted) throw new Error('Operator interrupted');
-      if (completed.has(runId)) return completed.get(runId);
-      return await new Promise((resolve, reject) => {
+      const terminal = completed.has(runId) ? completed.get(runId) : await new Promise((resolve, reject) => {
         const timer = setTimeout(() => { waiters.delete(runId); reject(new Error('No terminal chat event; no retry')); }, ms);
         waiters.set(runId, (error, payload) => { clearTimeout(timer); waiters.delete(runId); error ? reject(error) : resolve(payload); });
       });
+      if (terminal.sessionKey && terminal.sessionKey !== key) throw new Error('Terminal event session mismatch');
+      return terminal;
     },
     readEvidence: (runId, since) => {
       const output = execFileSync('journalctl', ['--user', '-u', 'openclaw-gateway-router-test.service', '--no-pager', '-o', 'cat', '--since', since], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
@@ -98,9 +99,11 @@ try {
     const verified = await rpc.request('config.get', {});
     const actualRouter = verified.config?.plugins?.entries?.['deterministic-router']?.config;
     if (JSON.stringify(actualRouter) !== JSON.stringify(saved.router) || verified.config?.agents?.entries?.[saved.agentId]?.model !== saved.agentModel) throw new Error('Recovery verification failed; inspect TEST manually');
+    const routerStatus = await rpc.request('deterministic-router.status', {});
+    if (routerStatus?.status !== 'available' || (routerStatus.effectiveMode ?? routerStatus.mode) !== saved.router.mode || routerStatus.autoSessionAllowlistCount !== saved.router.autoSessionKeyHashes.length || routerStatus.protectManualSelection !== true || routerStatus.requireSessionKeyForAuto !== true) throw new Error('Recovery router status does not match saved safeguards');
     const selected = await rpc.request('sessions.describe', { key: saved.sessionA });
     const selectedEntry = selected?.entry ?? selected?.session ?? selected;
-    if (selectedEntry.modelOverrideSource === 'user') throw new Error('A selection restoration not verified');
+    if (selectedEntry.modelOverrideSource !== null && selectedEntry.modelOverrideSource !== 'default') throw new Error('A selection restoration not verified');
     unlinkSync(recoveryFile);
     process.stdout.write('TEST config and A selection restored and verified. No inference turns used.\n');
   } else if (action === 'dry-run') {
