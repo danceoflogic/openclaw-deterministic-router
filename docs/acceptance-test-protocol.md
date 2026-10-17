@@ -1,13 +1,13 @@
 # Router acceptance test protocol
 
-This document is the canonical execution protocol for validating the deterministic router on OpenClaw 2026.9.8. Historical 2026.9.6 observations below remain labelled by version.
+This is the canonical acceptance protocol. **Current TEST acceptance target (owner-approved 2026-10-17): OpenClaw 2026.10.4.** Historical observations on 2026.9.8 and 2026.9.6 remain version-labelled, not current TEST requirements. The 2026-10-17 Issue #7 evidence-policy amendment below supersedes older requirements wherever they conflict.
 
 Track progress in [issue #10](https://github.com/danceoflogic/openclaw-deterministic-router/issues/10).
 
 ## Principles
 
 1. Prove deterministic properties locally before spending live inference.
-2. Observe selected and effective models independently.
+2. For Issue #7 functional acceptance, observe OpenClaw's model-selection state and router behaviour; external provider-model confirmation is a separately tracked check, not a prerequisite for the functional gate.
 3. Keep `shadow` as the safe default until all prerequisite gates pass.
 4. Manual user model selection is authoritative.
 5. Fail closed when session identity or manual-selection state is uncertain.
@@ -41,6 +41,8 @@ Issues:
 - [#3 manual lock restart semantics](https://github.com/danceoflogic/openclaw-deterministic-router/issues/3)
 
 Do not enable AUTO until both pass.
+
+**Scope clarification (owner decision, 2026-10-17):** Issue #2 telemetry capabilities and their verification levels remain documented, but **Issue #7 functional testing does not require collecting native Codex `model.call.completed`, provider-call, or a new `selectionReceipt` as a pass condition**. Use the existing OpenClaw/router session, decision and completed-turn records. Do not turn a missing native diagnostic into an infrastructure-research blocker; independent upstream-model confirmation is deferred to the owner's logs.
 
 ### Actual model telemetry
 
@@ -110,28 +112,30 @@ Issues:
 - [#7 controlled AUTO](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7)
 - [#8 subagent independence](https://github.com/danceoflogic/openclaw-deterministic-router/issues/8)
 
-AUTO is a test condition, not the repository default. This procedure is prepared only; running it, enabling AUTO, or making live model calls requires separate approval.
+### Owner decision — 2026-10-17: proportionate functional acceptance
 
-### Issue #7 model-choice A/B (prepared; not run)
+**Current TEST target:** the updated OpenClaw 2026.10.4 environment is accepted. Do not revert simply because earlier evidence and instructions refer to 2026.9.8. Keep production separate. PR #36 remains an unmerged implementation candidate until separately reviewed.
 
-Prepare two distinct, normal supported root sessions on Worktop. Session A explicitly selects GPT-6 Sol; session B starts on GPT-6 Sol as its configured/default model and has no manual override in persisted session state. Do not reuse or recreate the earlier failed synthetic fixtures; preserve them as historical evidence. Keep session keys private and correlate sanitized records by session-key hash and run ID.
+Issue #7 has **two explicitly distinct outcomes**:
 
-This A/B requires AUTO to exercise both manual protection and automatic routing, but this document does not authorize that change. Only in a separately approved test window, set the plugin mode to `auto` and allowlist exactly the hashes for sessions A and B; keep every other session unlisted. Preserve `shadow` as the repository default. Use the same unambiguous SIMPLE prompt in each session (for example, “Reply with the number 2.”). Do not save the prompt or response in logs.
+1. **Functional routing acceptance (blocking Issue #7's functional gate):** authenticate a genuine ordinary TEST Control UI turn; establish the operator's model choice and agent-scoped persisted selection where applicable; examine the router's classifier, `manualLock`, `applied`, and requested selection; and confirm OpenClaw reports the turn completed. Capture available model/session/run identifiers or bounded timestamps using the existing records. OpenClaw's documented selection and resolved-model reporting can be accepted as the runtime's representation of execution. This does **not** establish the identity of every upstream provider request.
+2. **Independent provider-model verification (non-blocking follow-up):** the owner can inspect **turn-level model accounting in their own OpenAI logs**. Where those records genuinely identify and associate a specific completed test turn and model, report that turn-level association; where they are only time-window totals, report aggregate evidence. Never invent correlation or claim a provider-level result before the logs are reviewed. A discrepancy is actionable and may reopen acceptance.
 
-**A — manual model selection**
+**Do not require** native Codex `model.call.completed`, per-provider-request or `selectionReceipt` receipts, exact in-memory bundle hashing, or new observability instrumentation solely to pass the functional A/B gate. Existing telemetry remains useful when available, but absence of a separately corroborating native diagnostic is not itself a failure. A router `applied=true` value alone is **not** proof of upstream model execution. Record observations at their actual evidence level.
 
-1. In session A, confirm the explicit manual selection `openai/gpt-6-sol`, then submit the SIMPLE prompt.
-2. Require a router decision for the same run showing `classifierTier: "SIMPLE"`, `manualLock: true`, and `applied: false`.
-3. Independently require a trusted OpenClaw native `model.call.completed` diagnostic recorded as `runtime-model` for that run showing GPT-6 Sol, correlated by run ID, plus confirmation that the root turn completed. The router's selected-model decision alone is insufficient.
+### Minimal owner-assisted TEST sequence
 
-**B — automatic routing**
+Prefer a human-created, attributed TEST Control UI session. Do not bypass session ownership guards or use unsupported CLI agent-exec routes. If operator interaction is needed, ask once for the exact small UI action rather than spending inference on preparatory research.
 
-1. In separate session B, confirm the configured/default model is `openai/gpt-6-sol` and persisted state has no manual override, then submit the same SIMPLE prompt.
-2. Require a router decision for the same run showing `classifierTier: "SIMPLE"`, `effectiveTier: "SIMPLE"`, `selectedProvider: "openai"`, `selectedModel: "gpt-6-luna"`, and `applied: true`, with no manual lock.
-3. Independently require a trusted OpenClaw native `model.call.completed` diagnostic recorded as `runtime-model` for that run showing GPT-6 Luna, correlated by run ID, plus confirmation that the root turn completed. The router's selected-model decision alone is insufficient.
-4. Restore `shadow` immediately after the bounded test and verify the resulting mode/config revision.
+- **A / shadow preparation:** one short TEST turn, if needed, to verify a genuine attributed UI turn and existing router audit. Confirm mode remains `shadow` and no override is applied. Treat a failed connection/ownership check as a concrete blocker to address, not a reason to repeat completed offline SDK tests.
+- **A / manual precedence in bounded AUTO:** choose `openai/gpt-6-sol` explicitly in ordinary session A; confirm OpenClaw's agent-scoped saved user override. Use an unambiguous SIMPLE prompt; require router `manualLock=true`, `applied=false` and ordinary turn completion. The router must not replace a genuine manual selection.
+- **B / automatic routing in bounded AUTO:** in a separate ordinary session B with configured/default Sol and **no user override**, use the same SIMPLE prompt; require router `manualLock=false`, SIMPLE tier, selected `openai/gpt-6-luna`, `applied=true`, and completed OpenClaw turn. Where provided, record OpenClaw's resolved model separately from the requested selection; missing external Codex provider receipts are not a test failure.
+- **Clear and recheck:** remove the manual model choice using the supported UI/default action; establish that the lock cleared and a subsequent eligible turn resumes AUTO.
+- **Safety and isolation:** preserve the exact session allowlist, agent scope, fail-closed unknown-state handling and independent A/B isolation. Check `shadow` and `off` behaviour under the existing protocol, then **restore and verify `shadow`** even after failures. Lifecycle/reset/recreation testing is a separate acceptance item and must not be silently marked passed by A/B.
 
-For both arms, retain only sanitized decision/runtime evidence and completion status. A prior ordinary GPT-6 Sol or reported Luna success is model-availability evidence, not A/B acceptance. It also does not resolve the separate historical Codex ownership 403. Stop and record a blocker if the required runtime completion evidence is absent or disagrees with the router decision; do not substitute the synthetic fixtures.
+Keep turns short and bounded by the owner's approved TEST window; **count any bootstrap inference toward its ceiling**, with no automatic retries. Never infer an approval for further calls from this documentation edit. No production deployment, general AUTO rollout, or GitHub merge is authorised by this protocol change. Record PASS/FAIL/INCONCLUSIVE for each functional case and the independent-model-check status separately.
+
+**Execution focus:** run the next permitted human-assisted TEST turn, inspect what happened, correct a demonstrated failure, and continue. Do not repeat successful offline synthetic scoped-selection tests or commission redundant Sol/Luna reviews in place of execution.
 
 ### Subagents
 
@@ -194,7 +198,7 @@ AUTO rollout is eligible for a deliberate release decision only when all of the 
 
 - deterministic local classification;
 - correct policy mapping;
-- selected/effective provider-model correlation;
+- OpenClaw routing decision and reported completion/resolved-model consistency for functional acceptance, with independently confirmed upstream model use recorded separately when owner-side turn-level logs are available;
 - manual selection protection across restart and session reset/deletion;
 - shadow-mode integration;
 - attachment-floor integration;
