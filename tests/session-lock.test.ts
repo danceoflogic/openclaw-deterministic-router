@@ -75,6 +75,18 @@ describe("session model-selection lock registry", () => {
     expect(registry.getState("s1")).toBe("clear");
   });
 
+  it("does not treat a complete inherited automatic child selection as a manual lock", () => {
+    const registry = new SessionLockRegistry();
+    registry.set("child", { provider: "openai", model: "gpt-6-sol" });
+    expect(reconcilePersistedSessionEntry(registry, "child", {
+      sessionId: "child-generation",
+      modelOverrideSource: "auto",
+      providerOverride: "openai",
+      modelOverride: "gpt-6-sol",
+    })).toBe("cleared");
+    expect(registry.getState("child")).toBe("clear");
+  });
+
   it("removes stale state and fails closed when persisted state is missing or ambiguous", () => {
     const registry = new SessionLockRegistry();
     registry.set("s1", { model: "gpt-6-sol", provider: "openai" });
@@ -95,6 +107,7 @@ describe("session model-selection lock registry", () => {
       { modelOverrideSource: "default" },
       { sessionId: "generation", modelOverrideSource: "invalid" },
       { sessionId: "generation", modelOverrideSource: "user", providerOverride: "openai" },
+      { sessionId: "generation", modelOverrideSource: "auto", providerOverride: "openai" },
       { sessionId: "generation", modelOverrideSource: "user", modelOverride: "gpt-6-sol" },
       { sessionId: "generation", modelOverrideSource: "user", modelOverride: null, providerOverride: "openai" },
     ]) {
