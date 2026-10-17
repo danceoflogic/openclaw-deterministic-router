@@ -6,13 +6,17 @@ import { GatewayClient } from '@openclaw/gateway-client';
 import { runAcceptance, validateOptions } from './runner.mjs';
 import { runControls, validateControlOptions } from './controls.mjs';
 import { runLifecycle, validateLifecycleOptions } from './lifecycle.mjs';
+import { runChildPhase, validateChildOptions } from './child.mjs';
 import { parseJournal } from './evidence.mjs';
 
 const [action, settingsPath] = process.argv.slice(2);
-if (!['init-device', 'validate', 'dry-run', 'run', 'resume-b', 'dry-run-controls', 'run-controls', 'dry-run-lifecycle', 'run-lifecycle', 'restore'].includes(action) || !settingsPath) throw new Error('Usage: node scripts/acceptance/cli.mjs init-device|validate|dry-run|run|resume-b|dry-run-controls|run-controls|dry-run-lifecycle|run-lifecycle|restore <private-settings.json>');
+if (!['init-device', 'validate', 'dry-run', 'run', 'resume-b', 'dry-run-controls', 'run-controls', 'dry-run-lifecycle', 'run-lifecycle', 'dry-run-child-parent', 'run-child-parent', 'dry-run-child-followup', 'run-child-followup', 'restore'].includes(action) || !settingsPath) throw new Error('Usage: node scripts/acceptance/cli.mjs <action> <private-settings.json>');
 const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+const childAction = action.includes('child-');
 if (settings.lifecycle === true && !['validate', 'dry-run-lifecycle', 'run-lifecycle', 'restore'].includes(action)) throw new Error('Lifecycle settings require a lifecycle action');
-if (['dry-run-lifecycle', 'run-lifecycle'].includes(action) || settings.lifecycle === true) validateLifecycleOptions(settings);
+if (settings.childTest === true && !['validate', 'dry-run-child-parent', 'run-child-parent', 'dry-run-child-followup', 'run-child-followup', 'restore'].includes(action)) throw new Error('Child settings require a child action');
+if (childAction || settings.childTest === true) validateChildOptions(settings);
+else if (['dry-run-lifecycle', 'run-lifecycle'].includes(action) || settings.lifecycle === true) validateLifecycleOptions(settings);
 else if (settings.maxTurns === 3) validateControlOptions(settings);
 else validateOptions(settings);
 if (action === 'validate') {
@@ -31,7 +35,7 @@ if (action === 'init-device') {
   process.stdout.write('Private device identity created. Pair it as an operator with read, write and admin scopes before run.\n');
   process.exit(0);
 }
-if (['run', 'resume-b', 'run-controls', 'run-lifecycle'].includes(action) && (process.env.ROUTER_ACCEPTANCE_LIVE !== 'YES' || process.env.ROUTER_ACCEPTANCE_APPROVED_TURNS !== String(settings.maxTurns))) throw new Error('Explicit live window and matching approved turn ceiling required');
+if (['run', 'resume-b', 'run-controls', 'run-lifecycle', 'run-child-parent', 'run-child-followup'].includes(action) && (process.env.ROUTER_ACCEPTANCE_LIVE !== 'YES' || process.env.ROUTER_ACCEPTANCE_APPROVED_TURNS !== String(settings.maxTurns))) throw new Error('Explicit live window and matching approved turn ceiling required');
 const identity = JSON.parse(readFileSync(settings.deviceFile, 'utf8'));
 const rawKey = createPublicKey(identity.publicKeyPem).export({ type: 'spki', format: 'der' }).subarray(-32);
 if (createHash('sha256').update(rawKey).digest('hex') !== identity.deviceId) throw new Error('Device identity mismatch');
@@ -88,6 +92,10 @@ try {
       const output = execFileSync('journalctl', ['--user', '-u', 'openclaw-gateway-router-test.service', '--no-pager', '-o', 'cat', '--since', since], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
       return parseJournal(output, runId);
     },
+    readAllEvidence: since => {
+      const output = execFileSync('journalctl', ['--user', '-u', 'openclaw-gateway-router-test.service', '--no-pager', '-o', 'cat', '--since', since], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+      return parseJournal(output);
+    },
   };
   const recoveryFile = settings.deviceFile + '.restore.json';
   if (action === 'restore') {
@@ -124,19 +132,20 @@ try {
     if (JSON.stringify(actualRouter) !== JSON.stringify(saved.router) || verified.config?.agents?.entries?.[saved.agentId]?.model !== saved.agentModel) throw new Error('Recovery verification failed; inspect TEST manually');
     const routerStatus = await rpc.request('deterministic-router.status', {});
     if (routerStatus?.status !== 'available' || (routerStatus.effectiveMode ?? routerStatus.mode) !== saved.router.mode || routerStatus.autoSessionAllowlistCount !== saved.router.autoSessionKeyHashes.length || routerStatus.protectManualSelection !== true || routerStatus.requireSessionKeyForAuto !== true) throw new Error('Recovery router status does not match saved safeguards');
-    if (saved.kind !== 'lifecycle') {
+    if (saved.kind !== 'lifecycle' && saved.kind !== 'child') {
       const selected = await rpc.request('sessions.describe', { key: saved.sessionA });
       const selectedEntry = selected?.entry ?? selected?.session ?? selected;
       if (selectedEntry.modelOverrideSource !== null && selectedEntry.modelOverrideSource !== 'default') throw new Error('A selection restoration not verified');
     }
     unlinkSync(recoveryFile);
-    process.stdout.write('TEST config and A selection restored and verified. No inference turns used.\n');
-  } else if (['dry-run', 'dry-run-controls', 'dry-run-lifecycle'].includes(action)) {
-    const result = action === 'dry-run-lifecycle' ? await runLifecycle(rpc, { ...settings, dryRun: true, recoveryPending: existsSync(recoveryFile) }) : action === 'dry-run-controls' ? await runControls(rpc, { ...settings, dryRun: true }) : await runAcceptance(rpc, { ...settings, dryRun: true });
+    process.stdout.write('TEST configuration and applicable selection restored and verified. No inference turns used.\n');
+  } else if (['dry-run', 'dry-run-controls', 'dry-run-lifecycle', 'dry-run-child-parent', 'dry-run-child-followup'].includes(action)) {
+    const prior = action === 'dry-run-child-followup' ? JSON.parse(readFileSync(settings.reportFile + '.child-parent.json', 'utf8')) : undefined;
+    const result = childAction ? await runChildPhase(rpc, { ...settings, dryRun: true, recoveryPending: existsSync(recoveryFile) }, action === 'dry-run-child-parent' ? 'parent' : 'followup', prior) : action === 'dry-run-lifecycle' ? await runLifecycle(rpc, { ...settings, dryRun: true, recoveryPending: existsSync(recoveryFile) }) : action === 'dry-run-controls' ? await runControls(rpc, { ...settings, dryRun: true }) : await runAcceptance(rpc, { ...settings, dryRun: true });
     process.stdout.write(JSON.stringify(result) + '\n');
   } else {
     const previousReport = action === 'resume-b' ? JSON.parse(readFileSync(settings.reportFile, 'utf8')) : undefined;
-    const outputPath = action === 'resume-b' ? settings.reportFile + '.resume.json' : action === 'run-controls' ? settings.reportFile + '.controls.json' : action === 'run-lifecycle' ? settings.reportFile + '.lifecycle.json' : settings.reportFile;
+    const outputPath = action === 'resume-b' ? settings.reportFile + '.resume.json' : action === 'run-controls' ? settings.reportFile + '.controls.json' : action === 'run-lifecycle' ? settings.reportFile + '.lifecycle.json' : action === 'run-child-parent' ? settings.reportFile + '.child-parent.json' : action === 'run-child-followup' ? settings.reportFile + '.child-followup.json' : settings.reportFile;
     const onBaseline = baseline => {
       if (existsSync(recoveryFile)) throw new Error('Existing recovery file: restore or archive it before another run');
       writeFileSync(recoveryFile, JSON.stringify(baseline), { mode: 0o600, flag: 'wx' });
@@ -150,7 +159,8 @@ try {
       renameSync(temporary, recoveryFile);
     };
     try {
-      const result = action === 'run-lifecycle' ? await runLifecycle(rpc, { ...settings, recoveryPending: existsSync(recoveryFile), shouldStop: () => interrupted, onBaseline, onProgress }, record => process.stdout.write(JSON.stringify(record) + '\n')) : action === 'run-controls' ? await runControls(rpc, { ...settings, shouldStop: () => interrupted, onBaseline }, record => process.stdout.write(JSON.stringify(record) + '\n')) : await runAcceptance(rpc, { ...settings, resumeB: action === 'resume-b', previousReport, shouldStop: () => interrupted, onBaseline }, record => process.stdout.write(JSON.stringify(record) + '\n'));
+      const prior = action === 'run-child-followup' ? JSON.parse(readFileSync(settings.reportFile + '.child-parent.json', 'utf8')) : undefined;
+      const result = childAction ? await runChildPhase(rpc, { ...settings, recoveryPending: existsSync(recoveryFile), shouldStop: () => interrupted, onBaseline }, action === 'run-child-parent' ? 'parent' : 'followup', prior) : action === 'run-lifecycle' ? await runLifecycle(rpc, { ...settings, recoveryPending: existsSync(recoveryFile), shouldStop: () => interrupted, onBaseline, onProgress }, record => process.stdout.write(JSON.stringify(record) + '\n')) : action === 'run-controls' ? await runControls(rpc, { ...settings, shouldStop: () => interrupted, onBaseline }, record => process.stdout.write(JSON.stringify(record) + '\n')) : await runAcceptance(rpc, { ...settings, resumeB: action === 'resume-b', previousReport, shouldStop: () => interrupted, onBaseline }, record => process.stdout.write(JSON.stringify(record) + '\n'));
       if (outputPath) { writeFileSync(outputPath, JSON.stringify(result, null, 2), { mode: 0o600 }); chmodSync(outputPath, 0o600); }
       process.stdout.write(JSON.stringify(result) + '\n');
       if (result.restoration === 'PASS' && existsSync(recoveryFile)) unlinkSync(recoveryFile);

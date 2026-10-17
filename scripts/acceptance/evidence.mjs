@@ -7,7 +7,7 @@ export function parseJournal(text, runId) {
     if (at < 0) continue;
     try {
       const item = JSON.parse(line.slice(at + prefix.length));
-      if (item.runId === runId) records.push(item);
+      if (runId === undefined || item.runId === runId) records.push(item);
     } catch { /* Unrelated or partial journal line. */ }
   }
   return records;

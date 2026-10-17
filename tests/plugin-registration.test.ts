@@ -642,6 +642,29 @@ describe("plugin registration contract", () => {
     ]));
   });
 
+  it("routes a child's automatic inherited Sol selection when its exact key is allowlisted", () => {
+    const on = vi.fn();
+    const info = vi.fn();
+    const childKey = "agent:main:subagent:child-test";
+    plugin.register({
+      pluginConfig: { mode: "auto", autoSessionKeyHashes: [createHash("sha256").update(childKey).digest("hex")] },
+      registerHook: vi.fn(), on,
+      runtime: { agent: { session: { getSessionEntry: vi.fn(() => ({
+        sessionId: "child-generation", modelOverrideSource: "auto",
+        providerOverride: "openai", modelOverride: "gpt-6-sol",
+      })) } } },
+      logger: { info, warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    } as never);
+    const hook = on.mock.calls.find(([name]) => name === "before_model_resolve")?.[1] as (
+      event: { prompt: string }, context: { sessionKey: string; runId: string; agentId: string },
+    ) => unknown;
+    expect(hook({ prompt: "Hello" }, { sessionKey: childKey, runId: "child-run", agentId: "main" }))
+      .toMatchObject({ providerOverride: "openai", modelOverride: "gpt-6-luna" });
+    const record = info.mock.calls.map(([value]) => String(value)).find(x => x.includes('"runId":"child-run"'));
+    expect(record).toContain('"manualLock":false');
+    expect(record).toContain('"applied":true');
+  });
+
   it("fails closed on malformed identity/selection and only resumes for a known-clear incarnation", () => {
     const on = vi.fn();
     const info = vi.fn();
