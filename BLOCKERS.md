@@ -1,12 +1,12 @@
 # Current blockers — 2026-10-17
 
-- **Remaining Issue #7 acceptance:** Bounded manual-precedence, genuine AUTO switch, clear-to-default, `shadow`, and `off` functional checks passed on isolated OpenClaw 2026.10.4 TEST. Live reset/deletion/recreation and unknown-state fail-closed checks remain open. [A/B evidence](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7#issuecomment-6239935075) · [controls evidence](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7#issuecomment-6240041352).
-- **Provider accounting:** OpenClaw-reported resolved models and router audits are functional evidence, not independent proof of upstream provider calls. The owner's turn-level OpenAI accounting review remains deferred and separate from #7 functional acceptance.
-- **Source/rollout:** [PR #38](https://github.com/danceoflogic/openclaw-deterministic-router/pull/38) (operator runner) and [PR #36](https://github.com/danceoflogic/openclaw-deterministic-router/pull/36) (model defaults) are open and unmerged. The TEST runner restored its captured settings; no production change or general AUTO rollout is claimed. Both approved TEST turn budgets are exhausted.
-- **Other gates:** Independent child routing (#8), performance/restart measurements (#9), and version/dependency policy (#12) remain pending.
+- **Issue #7 functional decision:** Owner accepted five completed TEST controls: manual Sol precedence, genuine Sol-default → Luna AUTO, clear/default resumes AUTO, SHADOW and OFF. Correlated OpenClaw/router evidence and restoration passed. [A/B result](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7#issuecomment-6239935075) · [controls result](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7#issuecomment-6240041352) · [owner decision](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7#issuecomment-6241094208).
+- **Deferred lifecycle edge:** Live reset/delete/same-key recreation and live unknown-state fault injection are **unverified, not PASS**. The last approved lifecycle attempt used **0/3 inference turns** and stopped because the operator-created disposable session lacked required immutable human-profile provenance; cleanup and TEST baseline verification passed. Offline unknown-state fail-closed regression checks passed. Defer further test-runner engineering pending a concrete need or before wider rollout; retain Issue #7 as a record of this limitation.
+- **Provider accounting:** OpenClaw-reported resolved models and router audits are functional evidence, not independent upstream-call verification. Owner's turn-level OpenAI accounting review remains deferred.
+- **Source/rollout:** [PR #38](https://github.com/danceoflogic/openclaw-deterministic-router/pull/38) merged into `main` on 17 October 2026 (squash commit `d70334f`), with final-head CI passing. [PR #36](https://github.com/danceoflogic/openclaw-deterministic-router/pull/36) remains open. Merge did **not** deploy the runner, alter production, or authorize general AUTO; guarded `shadow` remains the safe operating default.
+- **Next milestone:** Independent child-agent routing (#8) is the next functional gate. Performance/restart measurements (#9) and version/dependency policy (#12) remain pending. Use existing deterministic verification and obtain new inference approval only when needed.
 
-Next: design a separately bounded lifecycle/unknown-state check, then obtain any needed new live-turn authority. Keep `shadow` as the safe default; do not repeat the completed A/B or controls turns merely to recreate evidence.
-
+Do not repeat completed five-turn tests or restart the unsupported lifecycle creation path just to recreate evidence.
 ---
 
 ## Historical blockers — 2026-10-15
