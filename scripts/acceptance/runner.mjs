@@ -16,11 +16,12 @@ export function validateOptions(o) {
   assert(o.maxTurns === 2, 'Explicit two-turn A/B ceiling required');
   assert((!o.sessionA && !o.sessionB) || (o.sessionA && o.sessionB && o.sessionA !== o.sessionB), 'Provide two distinct keys or use API discovery');
   assert(o.agentId && /^[a-z0-9_-]+$/i.test(o.agentId), 'Explicit agentId required');
+  assert(o.ownerProfileId && /^[a-z0-9_-]+$/i.test(o.ownerProfileId), 'Explicit human owner profile required');
   assert(o.prompt === 'Reply with one word: ready', 'Only fixed short fixture is allowed');
   return o;
 }
 
-export async function discoverSessions(rpc, agentId) {
+export async function discoverSessions(rpc, agentId, ownerProfileId) {
   const rows = [];
   for (let offset = 0; ; offset += 200) {
     const page = await rpc.request('sessions.list', { agentId, limit: 200, offset, excludeSubagents: true, excludeCron: true, excludeSystem: true });
@@ -29,7 +30,7 @@ export async function discoverSessions(rpc, agentId) {
     if (page.sessions.length < 200) break;
     assert(offset < 1800, 'Too many TEST sessions; supply exact private keys');
   }
-  return rows.filter(x => x.agentId === agentId && typeof x.key === 'string').map(x => x.key);
+  return rows.filter(x => x.agentId === agentId && typeof x.key === 'string' && x.key.startsWith(`agent:${agentId}:dashboard:`) && x.createdVia === 'operator' && x.createdActor?.type === 'human' && x.createdActor?.identity?.type === 'profile' && x.createdActor.identity.id === ownerProfileId).map(x => x.key);
 }
 
 export async function runAcceptance(rpc, options, observe = () => {}) {
@@ -45,7 +46,7 @@ export async function runAcceptance(rpc, options, observe = () => {}) {
     const response = await call('sessions.describe', { key });
     const entry = response?.entry ?? response?.session ?? response;
     assert(entry?.sessionId && entry?.agentId === o.agentId, 'Session identity or agent scope unavailable');
-    assert(entry.createdActor?.type === 'human' && entry.createdActor?.identity?.type === 'profile', 'Session is not human-profile-created');
+    assert(key.startsWith(`agent:${o.agentId}:dashboard:`) && entry.createdActor?.type === 'human' && entry.createdActor?.identity?.type === 'profile' && entry.createdActor.identity.id === o.ownerProfileId, 'Session is not owned by the specified human profile');
     assert(entry.hasActiveRun === false, 'Session is not idle');
     return entry;
   };
@@ -106,7 +107,7 @@ export async function runAcceptance(rpc, options, observe = () => {}) {
     assert(typeof originalAgent === 'string', 'Explicit agent-specific TEST default required for exact restoration');
     await verifyStatus('shadow', p.autoSessionKeyHashes.length);
     if (!sessionA) {
-      const found = await discoverSessions(rpc, o.agentId);
+      const found = await discoverSessions(rpc, o.agentId, o.ownerProfileId);
       assert(found.length === 2, 'Expected exactly two discoverable sessions; set private exact keys if ambiguous');
       [sessionA, sessionB] = found;
     }

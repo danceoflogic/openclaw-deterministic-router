@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { digest, runAcceptance, validateOptions } from './runner.mjs';
+import { digest, discoverSessions, runAcceptance, validateOptions } from './runner.mjs';
 import { assessEvidence, parseJournal } from './evidence.mjs';
 
-const options = { gatewayUrl: 'ws://127.0.0.1:19879', profile: 'router-test', maxTurns: 2, agentId: 'main', sessionA: 'agent:main:dashboard:a', sessionB: 'agent:main:dashboard:b', prompt: 'Reply with one word: ready' };
+const options = { gatewayUrl: 'ws://127.0.0.1:19879', profile: 'router-test', maxTurns: 2, agentId: 'main', ownerProfileId: 'gateway-owner', sessionA: 'agent:main:dashboard:a', sessionB: 'agent:main:dashboard:b', prompt: 'Reply with one word: ready' };
 function mock({ initialModel = 'openai/gpt-6-luna', missingAudit = false, badManual = false, ignoreSolPatch = false, failSend = false, failRestore = false, failClear = false } = {}) {
   const config = { agents: { defaults: { model: 'openai/gpt-6-sol' }, entries: { main: { model: initialModel } } }, plugins: { entries: { 'deterministic-router': { config: { mode: 'shadow', protectManualSelection: true, requireSessionKeyForAuto: true, autoSessionKeyHashes: [], models: { SIMPLE: { provider: 'openai', model: 'gpt-6-luna' } } } } } } };
   const original = structuredClone(config);
@@ -16,8 +16,8 @@ function mock({ initialModel = 'openai/gpt-6-luna', missingAudit = false, badMan
       const router = config.plugins.entries['deterministic-router'].config;
       if (method === 'config.get') return { hash, config: structuredClone(config) };
       if (method === 'deterministic-router.status') return { status: 'available', effectiveMode: router.mode, protectManualSelection: router.protectManualSelection, requireSessionKeyForAuto: router.requireSessionKeyForAuto, autoSessionAllowlistCount: router.autoSessionKeyHashes.length };
-      if (method === 'sessions.list') return { sessions: [options.sessionA, options.sessionB].map(key => ({ key, agentId: 'main' })) };
-      if (method === 'sessions.describe') return { sessionId: p.key + ':id', agentId: 'main', createdActor: { type: 'human', identity: { type: 'profile', id: 'owner' } }, hasActiveRun: false, modelOverrideSource: overrides.has(p.key) ? 'user' : 'default', providerOverride: overrides.has(p.key) ? 'openai' : undefined, modelOverride: overrides.get(p.key) };
+      if (method === 'sessions.list') return { sessions: [options.sessionA, options.sessionB, 'agent:main:main', 'agent:main:dashboard:anonymous'].map((key, index) => ({ key, agentId: 'main', createdVia: 'operator', createdActor: index === 3 ? null : { type: 'human', identity: { type: 'profile', id: 'gateway-owner' } } })) };
+      if (method === 'sessions.describe') return { sessionId: p.key + ':id', agentId: 'main', createdActor: { type: 'human', identity: { type: 'profile', id: 'gateway-owner' } }, hasActiveRun: false, modelOverrideSource: overrides.has(p.key) ? 'user' : 'default', providerOverride: overrides.has(p.key) ? 'openai' : undefined, modelOverride: overrides.get(p.key) };
       if (method === 'sessions.patch') {
         if (p.model === null && failClear) throw Error('clear denied');
         if (p.model) overrides.set(p.key, p.model.split('/')[1]); else overrides.delete(p.key);
@@ -60,6 +60,9 @@ test('TEST isolation and two-turn budget fail closed', () => {
 test('session-key hash is exact SHA-256; journal parser correlates run only', () => {
   assert.equal(digest('abc'), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
   assert.deepEqual(parseJournal('[deterministic-router] {"runId":"other"}\n[deterministic-router] {"runId":"target","decisionId":"d"}', 'target'), [{ runId: 'target', decisionId: 'd' }]);
+});
+test('discovery ignores main root and operator rows lacking the specified actor', async () => {
+  assert.deepEqual(await discoverSessions(mock(), 'main', 'gateway-owner'), [options.sessionA, options.sessionB]);
 });
 test('A manual precedence and genuine B Sol-default to Luna pass; exact settings restored', async () => {
   const rpc = mock({ initialModel: 'openai/gpt-6-sol' });
