@@ -54,3 +54,52 @@ test('failed first turn does not retry and restores shadow', async () => {
   assert.deepEqual(cfg.plugins.entries['deterministic-router'].config.autoSessionKeyHashes, []);
   assert.equal(models.a, null);
 });
+
+function cleanupFailureRpc({ failRun = false, failRestore = false, failClear = false } = {}) {
+  const cfg = structuredClone(base), models = { a: null, b: null }, calls = [];
+  let hash = 'h';
+  return {
+    calls, models, cfg,
+    async request(method, p) {
+      calls.push([method, p]);
+      const state = cfg.plugins.entries['deterministic-router'].config;
+      if (method === 'config.get') return { hash, config: cfg };
+      if (method === 'deterministic-router.status') return { status: 'available', effectiveMode: state.mode, protectManualSelection: true, requireSessionKeyForAuto: true, autoSessionAllowlistCount: state.autoSessionKeyHashes.length };
+      if (method === 'sessions.describe') return { sessionId: p.key + 'id', agentId: 'router-test', createdActor: { type: 'human', source: 'profile' }, hasActiveRun: false, modelOverrideSource: models[p.key] ? 'user' : null, modelProvider: 'openai', model: models[p.key]?.split('/')[1] ?? 'gpt-6-sol' };
+      if (method === 'sessions.patch') { if (p.model === null && failClear) throw Error('clear denied'); models[p.key] = p.model; return {}; }
+      if (method === 'config.patch') { if (JSON.parse(p.raw).plugins.entries['deterministic-router'].config.mode === 'shadow' && failRestore) throw Error('restore denied'); Object.assign(state, JSON.parse(p.raw).plugins.entries['deterministic-router'].config); hash += 'x'; return {}; }
+      if (method === 'chat.send') { if (failRun) throw Error('uncertain admission'); return { status: 'started', runId: p.sessionKey + 'run' }; }
+      throw Error(method);
+    },
+    async waitForRun() {},
+  };
+}
+
+test('router restoration failure still attempts A selection cleanup', async () => {
+  const rpc = cleanupFailureRpc({ failRestore: true });
+  await assert.rejects(runAcceptance(rpc, opts), error => {
+    assert(error instanceof AggregateError);
+    assert.match(error.errors[0].message, /Router shadow restoration failed/);
+    assert.match(error.errors[0].cause.message, /restore denied/);
+    return true;
+  });
+  assert.equal(rpc.models.a, null);
+  assert.equal(rpc.cfg.plugins.entries['deterministic-router'].config.mode, 'auto');
+});
+
+test('primary run error and both cleanup failures are reported', async () => {
+  const rpc = cleanupFailureRpc({ failRun: true, failRestore: true, failClear: true });
+  await assert.rejects(runAcceptance(rpc, opts), error => {
+    assert(error instanceof AggregateError);
+    assert.deepEqual(error.errors.map(e => e.message), [
+      'uncertain admission',
+      'Router shadow restoration failed; verify TEST state manually',
+      'A selection cleanup failed; verify TEST session manually',
+    ]);
+    assert.match(error.errors[1].cause.message, /restore denied/);
+    assert.match(error.errors[2].cause.message, /clear denied/);
+    return true;
+  });
+  assert.equal(rpc.calls.filter(([m]) => m === 'chat.send').length, 1);
+  assert.equal(rpc.calls.filter(([m, p]) => m === 'sessions.patch' && p.model === null).length, 1);
+});

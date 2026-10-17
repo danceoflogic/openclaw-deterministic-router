@@ -19,7 +19,7 @@ export function validateOptions(o) {
 
 export async function runAcceptance(rpc, options, observe = () => {}) {
   const o = validateOptions(options);
-  let armed = false, turns = 0, result = 'INCONCLUSIVE';
+  let armed = false, selectionArmed = false, selectionSessionId, primaryError, turns = 0, result = 'INCONCLUSIVE';
   const call = (method, params = {}) => rpc.request(method, params);
   const status = () => call('deterministic-router.status');
   const config = () => call('config.get');
@@ -62,6 +62,8 @@ export async function runAcceptance(rpc, options, observe = () => {}) {
     const target = p.models?.SIMPLE;
     assert(target?.provider === 'openai' && target?.model === 'gpt-6-luna', 'SIMPLE target is not Luna');
     // Patch user override through the same persistent API used by the UI.
+    selectionSessionId = a.sessionId;
+    selectionArmed = true; // An ambiguous patch outcome still requires selection cleanup.
     await call('sessions.patch', { key: o.sessionA, model: 'openai/gpt-6-sol' });
     assert(userModel(await stableSession(o.sessionA, a.sessionId)) === 'openai/gpt-6-sol', 'Manual selection did not persist as user override');
     const fresh = await config();
@@ -77,17 +79,37 @@ export async function runAcceptance(rpc, options, observe = () => {}) {
     assert(noUserOverride(await stableSession(o.sessionB, b.sessionId)), 'Automatic session gained or has ambiguous persisted override');
     result = 'OBSERVED_COMPLETIONS_ROUTER_AUDIT_REQUIRED';
     return { result, turns, cases: ['manual-precedence', 'automatic-routing'], providerVerification: 'DEFERRED' };
+  } catch (error) {
+    primaryError = error;
+    throw error;
   } finally {
+    const cleanupErrors = [];
     if (armed) {
-      const current = await config();
-      await patchConfig(current.hash, { mode: 'shadow', autoSessionKeyHashes: [] }, ['plugins.entries.deterministic-router.config.autoSessionKeyHashes']);
-      await verifyStatus('shadow', 0);
-      const restored = plugin((await config()).config);
-      assert(restored?.mode === 'shadow' && Array.isArray(restored.autoSessionKeyHashes) && restored.autoSessionKeyHashes.length === 0, 'Shadow baseline not persisted');
+      try {
+        const current = await config();
+        await patchConfig(current.hash, { mode: 'shadow', autoSessionKeyHashes: [] }, ['plugins.entries.deterministic-router.config.autoSessionKeyHashes']);
+        await verifyStatus('shadow', 0);
+        const restored = plugin((await config()).config);
+        assert(restored?.mode === 'shadow' && Array.isArray(restored.autoSessionKeyHashes) && restored.autoSessionKeyHashes.length === 0, 'Shadow baseline not persisted');
+      } catch (error) {
+        cleanupErrors.push(new Error('Router shadow restoration failed; verify TEST state manually', { cause: error }));
+      }
     }
-    // The operator's temporary A selection is cleared; no session deletion/reset.
-    // If restoration fails, surface the error and require manual intervention.
-    const cleanupA = await session(o.sessionA).catch(() => null);
-    if (cleanupA && userModel(cleanupA) === 'openai/gpt-6-sol') await call('sessions.patch', { key: o.sessionA, model: null });
+    if (selectionArmed) {
+      try {
+        // Do not clear a changed generation or an unrelated user selection.
+        const cleanupA = await session(o.sessionA);
+        assert(cleanupA.sessionId === selectionSessionId, 'A session generation changed before cleanup');
+        if (userModel(cleanupA) === 'openai/gpt-6-sol') {
+          await call('sessions.patch', { key: o.sessionA, model: null });
+          assert(noUserOverride(await session(o.sessionA)), 'A selection cleanup not persisted');
+        }
+      } catch (error) {
+        cleanupErrors.push(new Error('A selection cleanup failed; verify TEST session manually', { cause: error }));
+      }
+    }
+    if (cleanupErrors.length) {
+      throw new AggregateError(primaryError ? [primaryError, ...cleanupErrors] : cleanupErrors, 'Acceptance run or cleanup failed; do not assume TEST state was restored');
+    }
   }
 }
