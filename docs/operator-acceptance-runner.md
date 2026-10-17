@@ -1,29 +1,36 @@
-# External operator TEST acceptance runner (OpenClaw 2026.10.4)
+# External operator TEST A/B runner (OpenClaw 2026.10.4)
 
-This is an **owner-launched external CLI**, not an agent-exec path or a Control UI impersonation. It uses the published `@openclaw/gateway-client` 2026.10.4 with an Ed25519 device identity and the documented `sessions.patch`, `chat.send`, `config.patch` and router status RPCs. The first action should be offline `dry-run`: it makes **zero Gateway calls**. No live run is authorised by this document; the previous six-turn inference window is exhausted.
+This is the existing PR #38 external Ed25519 operator client, extended for deterministic evidence collection. It targets **only** `ws://127.0.0.1:19879` with profile `router-test`. It does not use agent-exec for operator RPCs, change production, or perform any inference except the two explicitly approved test prompts. The previous six-turn allowance is exhausted; a **new two-turn approval** is required for `run`.
 
-The runner intentionally covers only the core A/B sequence. It does not assert lifecycle/reset, off-mode, provider-side request identity or independent accounting. Its final label is `OBSERVED_COMPLETIONS_ROUTER_AUDIT_REQUIRED` until the operator matches the emitted run IDs against existing router decision records (manual `manualLock=true,applied=false`; automatic `manualLock=false,applied=true`, SIMPLE, Luna) and OpenClaw resolved-model reporting. Independent upstream model confirmation remains deferred to owner logs under the 2026-10-17 [protocol](acceptance-test-protocol.md) amendment. See [#7](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7#issuecomment-6237123874) and [#10](https://github.com/danceoflogic/openclaw-deterministic-router/issues/10#issuecomment-6237124169).
+## Private one-time setup
 
-## Private setup, no live calls
-
-1. Install dependencies. Prepare **two genuinely operator-owned, idle, existing TEST sessions** for the same agent, with no model override. Do not synthesize session rows. Confirm TEST Gateway is really on loopback port 19879, router baseline is `shadow`, both guards true and allowlist empty, and SIMPLE maps to `openai/gpt-6-luna`. A session must expose `modelOverrideSource: null`; an omitted projection is not accepted.
-2. Create a private settings file outside the repository, mode 0600, containing:
+1. Install dependencies in this checkout. Ensure the isolated TEST Gateway is running and the candidate router is loaded. Keep the TEST journal readable by the operator's local account; the runner uses `journalctl --user -u openclaw-gateway-router-test.service` for existing router audits, without adding receipt infrastructure.
+2. Create a private 0600 JSON settings file outside the repository:
 
    ```json
-   {"gatewayUrl":"ws://127.0.0.1:19879","profile":"router-test","agentId":"YOUR_TEST_AGENT","sessionA":"EXISTING_TEST_KEY_A","sessionB":"EXISTING_TEST_KEY_B","maxTurns":2,"prompt":"Reply with one word: ready","deviceFile":"/PRIVATE/PATH/router-acceptance-device.json"}
+   {"gatewayUrl":"ws://127.0.0.1:19879","profile":"router-test","agentId":"main","maxTurns":2,"prompt":"Reply with one word: ready","deviceFile":"/PRIVATE/PATH/router-acceptance-device.json","reportFile":"/PRIVATE/PATH/router-acceptance-report.json"}
    ```
 
-3. `npm run acceptance:operator -- dry-run /PRIVATE/PATH/settings.json` validates this without a connection. `node --test scripts/acceptance/runner.test.mjs` runs mocked contract tests.
-4. `npm run acceptance:operator -- init-device /PRIVATE/PATH/settings.json` creates a private key file. An existing approved operator device can instead be provided at `deviceFile` in the same JSON shape; never commit either file. The client requests `operator.read`, `operator.write`, `operator.admin` (admin is needed only for the scoped config patch). For initial pairing, provide the TEST bootstrap token through `OPENCLAW_GATEWAY_TOKEN` in the **human-launched process environment**, start `run`, then use `openclaw devices list` and `openclaw devices approve <exact-request-id>` on TEST. Pairing may require one reconnect/second launch after approval; the first attempt makes no acceptance turn if authentication has not succeeded. The SDK persists its device token next to the identity as a 0600 file. Do not use a reserved backend identity or bypass ownership checks.
+   The operator API discovers full TEST session keys via `sessions.list` and verifies both with `sessions.describe`. It requires exactly two suitable, distinct, idle, human-profile-created sessions of the same agent with no override. If discovery is ambiguous, put private `sessionA` and `sessionB` keys in this file; never paste them into chat or a PR. No synthetic records or bootstrap turns are created.
+3. `npm run acceptance:operator -- validate /PRIVATE/PATH/settings.json` checks the file offline. `npm run acceptance:operator -- init-device /PRIVATE/PATH/settings.json` creates a private Ed25519 device identity. If an approved device already exists, use its file instead. Pair it once as an operator with `operator.read`, `operator.write`, and `operator.admin` on **TEST**: supply the TEST bootstrap token as `OPENCLAW_GATEWAY_TOKEN` only in the human-launched process environment, start a read-only `dry-run`, then inspect and approve its exact pending request with `openclaw --profile router-test devices list` and `openclaw --profile router-test devices approve <REQUEST_ID>`. Repeat `dry-run` after approval if the first connection timed out. The client stores the approved token beside the identity as a 0600 file and reuses it. Pairing is not an acceptance turn. Never use the unqualified production CLI for these steps.
+4. `npm run acceptance:operator -- dry-run /PRIVATE/PATH/settings.json` connects read-only to TEST and checks guarded shadow, router SIMPLE target, explicit agent default, and eligible sessions. It performs zero config/session mutations and zero inference. A `READY` result is preparation, not functional acceptance.
 
-## Bounded live run (requires new owner-authorised turn budget)
+## One-command bounded live run
 
-With an explicit newly approved ceiling of **2 inference turns**, the human runs:
+After the owner approves a fresh two-turn window, launch the independently authorised operator process:
 
 ```sh
 ROUTER_ACCEPTANCE_LIVE=YES ROUTER_ACCEPTANCE_APPROVED_TURNS=2 npm run acceptance:operator -- run /PRIVATE/PATH/settings.json
 ```
 
-The ceiling must match settings. There are no automatic `chat.send` retries; an uncertain ACK/timeout is inconclusive and consumes a turn. The runner refuses non-TEST URL/profile, wrong baseline, missing scoped session identity/provenance, wrong SIMPLE target or wrong router safeguards. It patches A to a persisted Sol user choice, verifies that provenance, then uses a hash allowlist for *only A and B* and enters AUTO. It sends one fixed short fixture to A, then B, observing terminal chat events by exact run ID. It records only case labels, run IDs and statuses, never prompts, responses, keys or credentials. On normal error or SIGINT/SIGTERM, it patches back to `shadow` with empty allowlist and verifies router status before clearing the temporary A model override. It never resets/deletes sessions or changes service state. Hard kills, host loss or an unconfirmed config write can defeat process-local cleanup: before any further turn, operator must manually verify TEST shadow/empty allowlist and restore via supported controls if necessary.
+The runner captures original TEST router and agent settings in a private recovery file before any mutation. A begins with the **agent-specific default Luna** and a persisted user Sol selection; its AUTO decision must show `manualLock=true`, `applied=false`. Only if A passes does B run. B begins with the **agent-specific default Sol** and no user override; its SIMPLE AUTO decision must select Luna with `manualLock=false`, `applied=true`. An ignored default change blocks B, so a Luna-to-Luna result cannot pass.
 
-The operator must review the two run IDs in existing sanitized router logs and OpenClaw session/turn records before marking functional PASS/FAIL. This client does **not** collect independent provider-call receipts. A reported completion is not by itself a routing PASS.
+Each turn gets one `chat.send`, no automatic inference retry. The runner correlates the exact run ID and first 16 characters of the session-key SHA-256 with the existing TEST journal audit, checks the decision and terminal chat event, and records OpenClaw's reported resolved model when available. Per-case results are `PASS`, `FAIL`, or `INCONCLUSIVE`; a completed turn alone is not PASS. The private JSON report includes run IDs, hashes, tier, selected model, lock/application states, completion, timestamps, and restoration. Provider-side model identity remains **deferred** to the owner's turn-level OpenAI accounting; router `applied=true` does not establish it.
+
+In `finally`, the runner independently restores the original router mode/allowlist, original agent default, and its temporary A selection, then verifies configuration. A hard kill or a failed restoration leaves `<deviceFile>.restore.json` for recovery. Before any further test turn, run:
+
+```sh
+npm run acceptance:operator -- restore /PRIVATE/PATH/settings.json
+```
+
+`restore` uses the same authenticated TEST operator process, performs no inference, refuses to clear a changed A user selection or changed session generation, and verifies the saved config. If it fails, inspect TEST manually; never assume restoration from a failed command. After a verified normal run, the temporary recovery file is removed. No service restart, general AUTO rollout, merge, or Issue #8 acceptance is implied.

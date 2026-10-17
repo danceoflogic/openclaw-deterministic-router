@@ -1,4 +1,12 @@
-# Current status — 2026-10-15
+# Current status — 2026-10-17 (PR #38 runner)
+
+- PR #38 external operator A/B runner now enforces A agent-default Luna with persisted user Sol and B agent-default Sol with no override. It uses supported TEST session discovery, exact private session-key hashing, two bounded turns, TEST journal audit correlation, automatic PASS/FAIL/INCONCLUSIVE reporting, and finally-based restoration of router mode/allowlist, agent default, and temporary A selection. A private recovery file supports no-inference `restore` after an interruption. See [operator instructions](docs/operator-acceptance-runner.md).
+- Offline validation: 12 focused acceptance tests pass (including ignored B-default patch, no-retry, missing audit, and restoration failures); typecheck and build pass. No TEST Gateway calls, live inference, production changes, or merge were made for this implementation update. The prior six-turn budget remains exhausted. Next: one-time operator pairing if needed, read-only TEST dry-run, then seek a fresh explicit two-turn approval before `run`.
+- This runner is a PR #38 source change, **not** a claim of live Issue #7 acceptance. Owner-side provider accounting and later OFF/lifecycle/#8 checks remain separate.
+
+---
+
+## Historical status — 2026-10-15
 
 **Source versus deployment:** [PR #33](https://github.com/danceoflogic/openclaw-deterministic-router/pull/33) merged into `main` on 15 October 2026. [PR #36](https://github.com/danceoflogic/openclaw-deterministic-router/pull/36), migrating committed model defaults to GPT-6 Luna/Sol, is open and not merged. The merged `main` mappings and the already-deployed Worktop GPT-6 shadow bundle must not be conflated.
 
