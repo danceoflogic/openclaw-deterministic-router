@@ -17,7 +17,7 @@ function mock({ initialModel = 'openai/gpt-6-luna', missingAudit = false, badMan
       if (method === 'config.get') return { hash, config: structuredClone(config) };
       if (method === 'deterministic-router.status') return { status: 'available', effectiveMode: router.mode, protectManualSelection: router.protectManualSelection, requireSessionKeyForAuto: router.requireSessionKeyForAuto, autoSessionAllowlistCount: router.autoSessionKeyHashes.length };
       if (method === 'sessions.list') return { sessions: [options.sessionA, options.sessionB].map(key => ({ key, agentId: 'main' })) };
-      if (method === 'sessions.describe') return { sessionId: p.key + ':id', agentId: 'main', createdActor: { type: 'human', source: 'profile' }, hasActiveRun: false, modelOverrideSource: overrides.has(p.key) ? 'user' : 'default', providerOverride: overrides.has(p.key) ? 'openai' : undefined, modelOverride: overrides.get(p.key) };
+      if (method === 'sessions.describe') return { sessionId: p.key + ':id', agentId: 'main', createdActor: { type: 'human', identity: { type: 'profile', id: 'owner' } }, hasActiveRun: false, modelOverrideSource: overrides.has(p.key) ? 'user' : 'default', providerOverride: overrides.has(p.key) ? 'openai' : undefined, modelOverride: overrides.get(p.key) };
       if (method === 'sessions.patch') {
         if (p.model === null && failClear) throw Error('clear denied');
         if (p.model) overrides.set(p.key, p.model.split('/')[1]); else overrides.delete(p.key);

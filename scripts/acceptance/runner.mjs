@@ -45,7 +45,7 @@ export async function runAcceptance(rpc, options, observe = () => {}) {
     const response = await call('sessions.describe', { key });
     const entry = response?.entry ?? response?.session ?? response;
     assert(entry?.sessionId && entry?.agentId === o.agentId, 'Session identity or agent scope unavailable');
-    assert(entry.createdActor?.type === 'human' && entry.createdActor?.source === 'profile', 'Session is not human-profile-created');
+    assert(entry.createdActor?.type === 'human' && entry.createdActor?.identity?.type === 'profile', 'Session is not human-profile-created');
     assert(entry.hasActiveRun === false, 'Session is not idle');
     return entry;
   };
