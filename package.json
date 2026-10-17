@@ -39,7 +39,7 @@
     "test:watch": "vitest",
     "check": "npm run typecheck && npm test && npm run build",
     "acceptance:operator": "node scripts/acceptance/cli.mjs",
-    "test:acceptance:operator": "node --test scripts/acceptance/runner.test.mjs"
+    "test:acceptance:operator": "node --test scripts/acceptance/*.test.mjs"
   },
   "keywords": [
     "openclaw",

@@ -4,12 +4,14 @@ import { execFileSync } from 'node:child_process';
 import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, sign } from 'node:crypto';
 import { GatewayClient } from '@openclaw/gateway-client';
 import { runAcceptance, validateOptions } from './runner.mjs';
+import { runControls, validateControlOptions } from './controls.mjs';
 import { parseJournal } from './evidence.mjs';
 
 const [action, settingsPath] = process.argv.slice(2);
-if (!['init-device', 'validate', 'dry-run', 'run', 'resume-b', 'restore'].includes(action) || !settingsPath) throw new Error('Usage: node scripts/acceptance/cli.mjs init-device|validate|dry-run|run|resume-b|restore <private-settings.json>');
+if (!['init-device', 'validate', 'dry-run', 'run', 'resume-b', 'dry-run-controls', 'run-controls', 'restore'].includes(action) || !settingsPath) throw new Error('Usage: node scripts/acceptance/cli.mjs init-device|validate|dry-run|run|resume-b|dry-run-controls|run-controls|restore <private-settings.json>');
 const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
-validateOptions(settings);
+if (settings.maxTurns === 3) validateControlOptions(settings);
+else validateOptions(settings);
 if (action === 'validate') {
   process.stdout.write('Offline validation passed; Gateway calls: 0; inference turns: 0.\n');
   process.exit(0);
@@ -26,7 +28,7 @@ if (action === 'init-device') {
   process.stdout.write('Private device identity created. Pair it as an operator with read, write and admin scopes before run.\n');
   process.exit(0);
 }
-if (['run', 'resume-b'].includes(action) && (process.env.ROUTER_ACCEPTANCE_LIVE !== 'YES' || process.env.ROUTER_ACCEPTANCE_APPROVED_TURNS !== String(settings.maxTurns))) throw new Error('Explicit live window and matching approved turn ceiling required');
+if (['run', 'resume-b', 'run-controls'].includes(action) && (process.env.ROUTER_ACCEPTANCE_LIVE !== 'YES' || process.env.ROUTER_ACCEPTANCE_APPROVED_TURNS !== String(settings.maxTurns))) throw new Error('Explicit live window and matching approved turn ceiling required');
 const identity = JSON.parse(readFileSync(settings.deviceFile, 'utf8'));
 const rawKey = createPublicKey(identity.publicKeyPem).export({ type: 'spki', format: 'der' }).subarray(-32);
 if (createHash('sha256').update(rawKey).digest('hex') !== identity.deviceId) throw new Error('Device identity mismatch');
@@ -106,19 +108,19 @@ try {
     if (selectedEntry.modelOverrideSource !== null && selectedEntry.modelOverrideSource !== 'default') throw new Error('A selection restoration not verified');
     unlinkSync(recoveryFile);
     process.stdout.write('TEST config and A selection restored and verified. No inference turns used.\n');
-  } else if (action === 'dry-run') {
-    const result = await runAcceptance(rpc, { ...settings, dryRun: true });
+  } else if (['dry-run', 'dry-run-controls'].includes(action)) {
+    const result = action === 'dry-run-controls' ? await runControls(rpc, { ...settings, dryRun: true }) : await runAcceptance(rpc, { ...settings, dryRun: true });
     process.stdout.write(JSON.stringify(result) + '\n');
   } else {
     const previousReport = action === 'resume-b' ? JSON.parse(readFileSync(settings.reportFile, 'utf8')) : undefined;
-    const outputPath = action === 'resume-b' ? settings.reportFile + '.resume.json' : settings.reportFile;
+    const outputPath = action === 'resume-b' ? settings.reportFile + '.resume.json' : action === 'run-controls' ? settings.reportFile + '.controls.json' : settings.reportFile;
     const onBaseline = baseline => {
       if (existsSync(recoveryFile)) throw new Error('Existing recovery file: restore or archive it before another run');
       writeFileSync(recoveryFile, JSON.stringify(baseline), { mode: 0o600, flag: 'wx' });
       chmodSync(recoveryFile, 0o600);
     };
     try {
-      const result = await runAcceptance(rpc, { ...settings, resumeB: action === 'resume-b', previousReport, shouldStop: () => interrupted, onBaseline }, record => process.stdout.write(JSON.stringify(record) + '\n'));
+      const result = action === 'run-controls' ? await runControls(rpc, { ...settings, shouldStop: () => interrupted, onBaseline }, record => process.stdout.write(JSON.stringify(record) + '\n')) : await runAcceptance(rpc, { ...settings, resumeB: action === 'resume-b', previousReport, shouldStop: () => interrupted, onBaseline }, record => process.stdout.write(JSON.stringify(record) + '\n'));
       if (outputPath) { writeFileSync(outputPath, JSON.stringify(result, null, 2), { mode: 0o600 }); chmodSync(outputPath, 0o600); }
       process.stdout.write(JSON.stringify(result) + '\n');
       if (result.restoration === 'PASS' && existsSync(recoveryFile)) unlinkSync(recoveryFile);

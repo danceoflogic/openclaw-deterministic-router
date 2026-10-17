@@ -40,3 +40,21 @@ npm run acceptance:operator -- restore /PRIVATE/PATH/settings.json
 ```
 
 `restore` uses the same authenticated TEST operator process, performs no inference, refuses to clear a changed A user selection or changed session generation, and verifies the saved config. If it fails, inspect TEST manually; never assume restoration from a failed command. After a verified normal run, the temporary recovery file is removed. No service restart, general AUTO rollout, merge, or Issue #8 acceptance is implied.
+
+## Next bounded Issue #7 controls window
+
+The completed A/B result is not rerun. Copy the private settings to a separate 0600 controls settings file and set `maxTurns` to **3**; leave the TEST URL, profile, owner, device, and fixed prompt unchanged. The same paired operator identity is reused. `dry-run-controls` is read-only, validates the guarded `shadow` baseline, exact human-owned idle sessions, Sol/Luna target, and clear selections, and spends zero turns:
+
+```sh
+npm run acceptance:operator -- dry-run-controls /PRIVATE/PATH/controls-settings.json
+```
+
+After a **separate explicit approval for up to three TEST inference turns**, use the operator-opened terminal:
+
+```sh
+ROUTER_ACCEPTANCE_LIVE=YES ROUTER_ACCEPTANCE_APPROVED_TURNS=3 npm run acceptance:operator -- run-controls /PRIVATE/PATH/controls-settings.json
+```
+
+The sequence uses A for all three short turns, keeps B clear and untouched as an isolation check, and stops on any non-PASS result. It first persists then clears a temporary user Sol choice on A, verifies the clear state, and requires AUTO to select/apply Luna from the Sol agent default. In `shadow`, it requires a correlated SIMPLE/Luna candidate with `applied=false` and Sol resolution. In `off`, it requires a completed Sol-default turn with no router decision for that run ID. It waits for the previous turn to become idle before another send; it does not retry inference. The report is `<reportFile>.controls.json`, with per-case run/hash/evidence and restoration. Finally-based cleanup restores the original router mode and exact allowlist, agent default, and A selection; the same private recovery file and `restore` command apply if interrupted.
+
+This window does **not** test reset/delete/recreation or unknown-state fail-closed behaviour, and does not prove provider-level model identity. Those remain separate acceptance items with their own budget and supported lifecycle procedure.
