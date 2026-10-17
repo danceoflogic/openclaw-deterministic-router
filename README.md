@@ -7,7 +7,7 @@ A local, deterministic and auditable model-routing plugin for OpenClaw.
 
 The project is designed for one job: **route each eligible OpenClaw turn to an explicitly configured model without spending an LLM call to decide which model should answer.**
 
-> **Project status (11 October 2026):** experimental / shadow-first. The development and integration target is **OpenClaw 2026.9.8**. The document attachment floor has passed a real Worktop shadow test and its fix is merged. Controlled AUTO and independent subagent routing are **not yet accepted**; `shadow` remains the default.
+> **Project status (17 October 2026):** experimental / shadow-first. On isolated **OpenClaw 2026.10.4 TEST**, bounded ordinary-turn manual-precedence, genuine AUTO switch, clear-to-default, `shadow`, and `off` functional checks passed. Issue #7 remains open for live lifecycle and unknown-state fail-closed checks; provider accounting and independent subagent routing are pending. The runner is in [PR #38](https://github.com/danceoflogic/openclaw-deterministic-router/pull/38), not merged into `main`; no production AUTO rollout is implied. See [current progress](PROGRESS.md).
 
 ## Why this exists
 
@@ -81,11 +81,12 @@ Apply `providerOverride` and `modelOverride` from `before_model_resolve`, subjec
 
 | OpenClaw version | Status |
 |---|---|
-| `2026.9.8` | Current development target; Worktop shadow attachment behaviour verified |
+| `2026.10.4` | Isolated TEST runtime for the bounded Issue #7 functional routing checks; this is not a blanket compatibility or rollout claim for `main` |
+| `2026.9.8` | Committed development dependency target; historical Worktop shadow attachment behaviour verified |
 | `2026.9.6` | Historical baseline; retained as the declared minimum, not the current validation target |
 | Other versions | Re-run the hook compatibility gates before enabling `auto` |
 
-The development dependency and build metadata target OpenClaw `2026.9.8`. The declared `>=2026.9.6 <2027` range is not a blanket claim that AUTO has passed on every release in that range; issue #12 tracks tightening it before release. The router deliberately treats host-version compatibility as an integration gate because model/session hook contracts can evolve independently of the deterministic classifier.
+The development dependency and build metadata still target OpenClaw `2026.9.8`; the later 2026.10.4 TEST results do not change those committed fields. The declared `>=2026.9.6 <2027` range is not a blanket claim that AUTO has passed on every release in that range; issue #12 tracks tightening it before release. The router deliberately treats host-version compatibility as an integration gate because model/session hook contracts can evolve independently of the deterministic classifier.
 
 ## Installation for development
 
@@ -180,7 +181,7 @@ A basic functional beta means the following have been demonstrated on the curren
 | Gate | Current evidence | Remaining work |
 |---|---|---|
 | Deterministic local policy and shadow integration | #2–#5 completed; real document attachment floor passed on Worktop and its fix merged in PR #22 | #6 is closed; #10 now records the completed shadow gate |
-| Bounded ordinary-turn AUTO (#7) | Not yet accepted | Confirm selected/effective target, genuine manual selection across restart, return to default, and `shadow`/`off` rollback |
+| Bounded ordinary-turn AUTO (#7) | TEST functional A/B, clear-to-default, `shadow`, and `off` passed; #7 remains open | Live lifecycle/reset/deletion/recreation and unknown-state fail-closed checks; owner-side provider accounting is separate |
 | Independent child routing (#8) | Not yet accepted | Observe separate parent/child decisions and effective models; document the actual runtime granularity |
 
 After the bounded AUTO tests, restore `shadow`. Release readiness adds measured overhead/restart behaviour (#9), a defensible compatibility and dependency policy (#12), and the remaining [acceptance tracker](https://github.com/danceoflogic/openclaw-deterministic-router/issues/10) checks. See [current progress](PROGRESS.md) and [blockers](BLOCKERS.md) for the evidence boundaries.

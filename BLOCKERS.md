@@ -1,4 +1,15 @@
-# Current blockers — 2026-10-15
+# Current blockers — 2026-10-17
+
+- **Remaining Issue #7 acceptance:** Bounded manual-precedence, genuine AUTO switch, clear-to-default, `shadow`, and `off` functional checks passed on isolated OpenClaw 2026.10.4 TEST. Live reset/deletion/recreation and unknown-state fail-closed checks remain open. [A/B evidence](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7#issuecomment-6239935075) · [controls evidence](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7#issuecomment-6240041352).
+- **Provider accounting:** OpenClaw-reported resolved models and router audits are functional evidence, not independent proof of upstream provider calls. The owner's turn-level OpenAI accounting review remains deferred and separate from #7 functional acceptance.
+- **Source/rollout:** [PR #38](https://github.com/danceoflogic/openclaw-deterministic-router/pull/38) (operator runner) and [PR #36](https://github.com/danceoflogic/openclaw-deterministic-router/pull/36) (model defaults) are open and unmerged. The TEST runner restored its captured settings; no production change or general AUTO rollout is claimed. Both approved TEST turn budgets are exhausted.
+- **Other gates:** Independent child routing (#8), performance/restart measurements (#9), and version/dependency policy (#12) remain pending.
+
+Next: design a separately bounded lifecycle/unknown-state check, then obtain any needed new live-turn authority. Keep `shadow` as the safe default; do not repeat the completed A/B or controls turns merely to recreate evidence.
+
+---
+
+## Historical blockers — 2026-10-15
 
 - **Runtime acceptance (#7):** No completed ordinary-root GPT-6 A/B AUTO acceptance. The older synthetic fixture A produced an ownership-related 403; one separate native Sol success is insufficient to clear it. Controlled A/B prompts were not run in the latest Worktop attempt.
 - **Session setup:** The initial fresh/idle-root prerequisite was not satisfied (one root old; one root already containing an ordinary UI bootstrap turn). A proposed bootstrap revision remains unapproved. The dedicated test-agent default was temporarily changed to GPT-6 Sol from GPT-5.6 Luna; preserve its exact checked restoration target.
