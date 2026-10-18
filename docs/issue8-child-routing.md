@@ -1,6 +1,8 @@
 # Issue #8 — independent child routing (TEST acceptance)
 
-Status: **two-phase TEST acceptance passed on 2026-10-18 at the OpenClaw agent-turn level**. The first approved attempt had used a native Codex `spawn_agent` child and was inconclusive. The corrected attempt used an actual OpenClaw `sessions_spawn` child, demonstrated an independently routed Luna follow-up, and restored TEST to its captured SHADOW configuration and prior build. The separately approved first-turn TEST below also passed; provider-request-level accounting remains deferred.
+**Current status (18 October 2026): ACCEPTED AND MERGED.** Existing-child follow-up routing and automatic first-turn child Luna routing without a child model override both passed in separately approved isolated TEST. Parent Sol, first-turn child Luna and parent completion Luna: **3/4 approved OpenClaw turns**, no retry, checked restoration. [Acceptance evidence](https://github.com/danceoflogic/openclaw-deterministic-router/issues/8#issuecomment-6252069728) · [Merged PR #40](https://github.com/danceoflogic/openclaw-deterministic-router/pull/40). Provider-request-level verification, live lifecycle edges and wider rollout remain separate.
+
+**Historical TEST procedures and attempt records below are preserved for provenance.** References to draft/unmerged code or future tests describe their earlier state and are not orders to repeat accepted work.
 
 ## Installed OpenClaw 2026.10.4 contract
 

@@ -4,6 +4,14 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 
+### 2026-10-18 — functional TEST milestone
+
+- [PR #40](https://github.com/danceoflogic/openclaw-deterministic-router/pull/40) merged as `217c5ae`: complete `modelOverrideSource: auto` child selection handled without a false manual lock; empty-by-default `autoSpawnParentGrants` authorizes only exact human-created parent incarnations and verified same-agent direct children; first-turn operator acceptance logic and regressions added.
+- Existing-child follow-up and **first-turn** real `sessions_spawn` child routing passed in isolated OpenClaw 2026.10.4 TEST. First-turn parent Sol, child Luna and completion Luna were independently recorded at OpenClaw agent-turn scope, **3/4 approved turns**, no retries; TEST restored exactly, production unchanged ([#8 evidence](https://github.com/danceoflogic/openclaw-deterministic-router/issues/8#issuecomment-6252069728)).
+- Five ordinary-turn controls accepted under #7 on 17 October. Per-provider-request accounting, live lifecycle fault cases, measured cost savings, per-tier effort control and broad production rollout are **not** established.
+- PR #40 CI passed at `15fda37` (83 Vitest tests, typecheck and build), with 43 local operator-tool tests recorded by the PR.
+
+
 ### Fixed
 
 - 2026-10-14, Issue #7: use fresh UUIDs for status registration generations and explicitly mark the read-only status RPC `profileAccess: "independent"`; `operator.read` remains required. Pinned Gateway authorization regression now derives both profile access and scope from actual registration options.
