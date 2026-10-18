@@ -198,11 +198,11 @@ See the [acceptance protocol](docs/acceptance-test-protocol.md) and [child evide
 
 ## Experimental extension: mid-turn stage routing
 
-[Issue #42](https://github.com/danceoflogic/openclaw-deterministic-router/issues/42) prioritises **mid-turn stage-level model changes** as the first optional extension; unrestricted per-request routing is a later possibility. See the [design note](docs/model-call-routing-feasibility.md) and [offline prototype instructions](docs/stage-routing-prototype.md).
+[Issue #42](https://github.com/danceoflogic/openclaw-deterministic-router/issues/42) prioritises **mid-turn stage-level model changes** as the first optional extension; unrestricted per-request routing is a later possibility. See the [feasibility/design note](docs/model-call-routing-feasibility.md).
 
-A progress comment is **not** a reliable review signal. The intended boundary is **after a model response and associated tool batch finish, but before the next Codex sampling request captures its settings**. Current OpenClaw/Codex does not expose a verified synchronous adapter callback at that boundary; `turn/settings/update` alone must not be assumed to update the *active* turn.
+A progress comment is **not** itself a reliable review point. The target boundary is **after a model response and its tool work settle, but before Codex snapshots the next follow-up step**. Sol High identified Codex's follow-up sampling seam in a local source investigation and reported no installed OpenClaw handoff at that point. Version-specific verification is the next task. Although upstream Codex exposes experimental `turn/settings/update` controls for *subsequent* steps, an asynchronous update is not a guaranteed pre-request hook.
 
-**Experimental offline code exists, but runtime integration is not implemented or enabled.** `src/stage-routing.ts` returns a guarded, synchronous recommendation only. Its fake-host tests simulate an A → B → A transition without provider calls; the plugin entry point and current agent-turn routing remain unchanged. Reuse the original task model for difficult continuations, respect manual choices and measure actual independent per-model cache economics before enabling live switching.
+**Not implemented or enabled.** Design stays fast, simple and local: reuse existing classification/policy and original task context; preserve the **original chosen model for difficult tasks** rather than automatically downgrading; respect manual selections; consider independent per-model prompt caches using measured costs, not assumptions. Build one small synchronised callback only if a supported mechanism does not already exist. Existing agent-turn routing remains unchanged.
 
 ## Comparative research
 
