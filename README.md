@@ -196,13 +196,13 @@ Preserve the *unverified* live lifecycle/reset/recreation and fault-injection ed
 
 See the [acceptance protocol](docs/acceptance-test-protocol.md) and [child evidence](docs/issue8-child-routing.md).
 
-## Experimental extension: model-call routing
+## Experimental extension: mid-turn stage routing
 
-[Issue #42](https://github.com/danceoflogic/openclaw-deterministic-router/issues/42) tracks a **separate, opt-in** extension for local routing between inference requests within an active Codex/OpenClaw turn. See the [minimal feasibility and design note](docs/model-call-routing-feasibility.md).
+[Issue #42](https://github.com/danceoflogic/openclaw-deterministic-router/issues/42) prioritises **mid-turn stage-level model changes** as the first optional extension; unrestricted per-request routing is a later possibility. See the [feasibility/design note](docs/model-call-routing-feasibility.md).
 
-This is **not implemented or enabled**. A Codex experimental `turn/settings/update` method exists upstream, but we have **not established** that the installed OpenClaw/Codex combination exposes a reliable pre-sampling control point. The first step is offline compatibility and timing investigation, not a new service, Codex fork, production AUTO, or repeated Issue #8 acceptance.
+A progress comment is **not** itself a reliable review point. The target boundary is **after a model response and its tool work settle, but before Codex snapshots the next follow-up step**. Sol High identified Codex's follow-up sampling seam in a local source investigation and reported no installed OpenClaw handoff at that point. Version-specific verification is the next task. Although upstream Codex exposes experimental `turn/settings/update` controls for *subsequent* steps, an asynchronous update is not a guaranteed pre-request hook.
 
-Policy is model-agnostic: **preserve the original chosen model for difficult tasks rather than aggressively downgrading**; a user-selected model remains authoritative. Measure net task quality and billed cost, including *independent per-model prompt caches*, before deciding whether call-level switching is beneficial. Existing agent-turn routing remains unchanged.
+**Not implemented or enabled.** Design stays fast, simple and local: reuse existing classification/policy and original task context; preserve the **original chosen model for difficult tasks** rather than automatically downgrading; respect manual selections; consider independent per-model prompt caches using measured costs, not assumptions. Build one small synchronised callback only if a supported mechanism does not already exist. Existing agent-turn routing remains unchanged.
 
 ## Comparative research
 
