@@ -9,6 +9,14 @@ export type ModelTarget = {
   model: string;
 };
 
+/** An explicit grant for direct children of one human-created parent incarnation. */
+export type AutoSpawnParentGrant = {
+  parentSessionKeyHash: string;
+  parentSessionId: string;
+  parentLifecycleRevision: string;
+  parentCreatorProfileId: string;
+};
+
 export type RouterPluginConfig = {
   mode: RouterMode;
   ambiguousTier: RouterTier;
@@ -16,6 +24,8 @@ export type RouterPluginConfig = {
   requireSessionKeyForAuto: boolean;
   /** SHA-256 hex digests of the exact session keys permitted to receive AUTO overrides. */
   autoSessionKeyHashes: string[];
+  /** Empty by default; each grant permits verified same-agent direct children of one parent incarnation. */
+  autoSpawnParentGrants: AutoSpawnParentGrant[];
   minAttachmentTier: RouterTier;
   models: Record<RouterTier, ModelTarget>;
 };
