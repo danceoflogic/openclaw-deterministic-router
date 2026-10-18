@@ -196,6 +196,14 @@ Preserve the *unverified* live lifecycle/reset/recreation and fault-injection ed
 
 See the [acceptance protocol](docs/acceptance-test-protocol.md) and [child evidence](docs/issue8-child-routing.md).
 
+## Experimental extension: model-call routing
+
+[Issue #42](https://github.com/danceoflogic/openclaw-deterministic-router/issues/42) tracks a **separate, opt-in** extension for local routing between inference requests within an active Codex/OpenClaw turn. See the [minimal feasibility and design note](docs/model-call-routing-feasibility.md).
+
+This is **not implemented or enabled**. A Codex experimental `turn/settings/update` method exists upstream, but we have **not established** that the installed OpenClaw/Codex combination exposes a reliable pre-sampling control point. The first step is offline compatibility and timing investigation, not a new service, Codex fork, production AUTO, or repeated Issue #8 acceptance.
+
+Policy is model-agnostic: **preserve the original chosen model for difficult tasks rather than aggressively downgrading**; a user-selected model remains authoritative. Measure net task quality and billed cost, including *independent per-model prompt caches*, before deciding whether call-level switching is beneficial. Existing agent-turn routing remains unchanged.
+
 ## Comparative research
 
 The [comparative model-router research (13 October 2026)](docs/openclaw-router-comparative-research-2026-10-13.md) reviews related projects and research, including classification ambiguity, capability-aware selection, host fallback behavior, session safety, and an offline evaluation plan. It is a **research note**, not implementation approval or evidence that AUTO is ready.
