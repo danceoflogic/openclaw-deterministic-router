@@ -43,6 +43,22 @@ To route a newly minted child's **first** turn without predicting its UUID or se
 
 This is a **new authorization scope**, not part of the 2026-10-18 live PASS. It is bounded to one parent generation, but each direct child of that generation can be task-routed on its first turn. The installed TEST parent and child records were checked read-only and expose the required internal provenance; the public `sessions.describe` projection omits some generation fields, so an operator must use a supported authoritative session-entry read to construct a grant. An ownership reassignment is not exposed in that plugin read; Gateway ownership/access checks remain unchanged, and the grant is pinned to the immutable human creator rather than claimed to track mutable ownership. Do not enable this path in TEST or production without separate approval and a new bounded first-turn test. Provider-request-level verification remains deferred.
 
+The owner chose to keep this parent-incarnation/creator scope, without extra mutable-owner tracking. A reassignment does not delete a child or change its recorded parent; Gateway ownership and access checks remain separate from model routing.
+
+### Prepared first-turn TEST gate (not yet run)
+
+The existing acceptance runner now has `dry-run-child-first-turn` and `run-child-first-turn`. It uses the same exact TEST parent and fixed prompt, with **one** `chat.send` and no follow-up or inference retry. The parent key is exactly allowlisted; the runner reads the parent through installed OpenClaw's read-only `getSessionEntry` with the TEST state root, pins its key hash/session ID/lifecycle revision/profile creator, and temporarily enables just that one parent grant. It requires the effective `sessions_spawn` tool preview and an idle, clear parent. The new build must publish `autoSpawnParentGrantCount: 0` before the dry-run can say READY.
+
+PASS requires one genuine same-agent OpenClaw child, authoritative spawn lineage matching the grant, distinct parent/child run IDs, a parent REASONING→Sol decision authorised by its exact key, and a child SIMPLE/MEDIUM→Luna **first-turn** decision with `autoAuthorization: "spawn-parent"`, `applied: true`, and OpenClaw-reported Luna runtime resolution. The child's persisted automatic *starting* model should remain inherited Sol; that field is not evidence of its turn's resolved model. Count all observed parent/child router run IDs; require 2–3 against the guarded four-turn ceiling. Provider-request-level verification remains deferred. The runner restores and verifies the full original SHADOW plugin configuration (including an absent or empty grant list) and original agent default even on failure, and writes a separate private `.child-first-turn.json` report so historical evidence is not overwritten. The existing recovery command handles interrupted grant restoration.
+
+Before any new live attempt, capture the current TEST build/config hashes, load this PR's candidate into **TEST only**, verify its build hash and SHADOW safeguards, and require the read-only command below to return READY. A separate approval must cover the temporary TEST build/config change and a new **maximum four-turn** OpenClaw inference window. The previous completed test's approval cannot be reused. Restore the captured TEST build/config afterward and verify Gateway health; never merge or touch production as a side effect.
+
+```bash
+node scripts/acceptance/cli.mjs dry-run-child-first-turn /home/stduser/.openclaw-router-test/operator-acceptance-settings-child.json
+# Only after separate approval and READY:
+ROUTER_ACCEPTANCE_LIVE=YES ROUTER_ACCEPTANCE_APPROVED_TURNS=4 node scripts/acceptance/cli.mjs run-child-first-turn /home/stduser/.openclaw-router-test/operator-acceptance-settings-child.json
+```
+
 ## Operator commands (historical; a new attempt requires separate approval)
 
 Private settings: `/home/stduser/.openclaw-router-test/operator-acceptance-settings-child.json`. Both phases require the TEST Gateway to load the candidate build containing the automatic-selection fix. Confirm that deployment and a fresh read-only dry-run before spending any turn.

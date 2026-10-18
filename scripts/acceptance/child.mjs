@@ -36,20 +36,22 @@ export async function runChildPhase(rpc, options, phase, prior) {
     return response?.entry ?? response?.session ?? null;
   };
   const status = () => call('deterministic-router.status');
+  const firstTurn = phase === 'first-turn';
+  assert(['parent', 'followup', 'first-turn'].includes(phase), 'Unknown Issue #8 child phase');
   const report = { result: 'INCONCLUSIVE', phase, turns: 0, cases: [], restoration: 'UNVERIFIED', providerVerification: 'DEFERRED' };
   let baseline, defaultModel, routerArmed = false, agentArmed = false, error;
   const verifyBaseline = async () => {
     const c = (await get()).config;
     const s = await status();
-    assert(same(router(c), baseline) && c.agents?.entries?.[o.agentId]?.model === defaultModel && s?.status === 'available' && (s.effectiveMode ?? s.mode) === baseline.mode && s.autoSessionAllowlistCount === baseline.autoSessionKeyHashes.length, 'TEST router/agent baseline restoration not verified');
+    assert(same(router(c), baseline) && c.agents?.entries?.[o.agentId]?.model === defaultModel && s?.status === 'available' && (s.effectiveMode ?? s.mode) === baseline.mode && s.autoSessionAllowlistCount === baseline.autoSessionKeyHashes.length && (!firstTurn || s.autoSpawnParentGrantCount === (baseline.autoSpawnParentGrants?.length ?? 0)), 'TEST router/agent baseline restoration not verified');
   };
-  const setRouter = async (mode, hashes) => {
+  const setRouter = async (mode, hashes, grants) => {
     const c = await get();
     assert(c?.hash, 'Config CAS hash unavailable');
     routerArmed = true;
-    await call('config.patch', { baseHash: c.hash, raw: JSON.stringify({ plugins: { entries: { 'deterministic-router': { config: { mode, autoSessionKeyHashes: hashes } } } } }), replacePaths: ['plugins.entries.deterministic-router.config.autoSessionKeyHashes'] });
+    await call('config.patch', { baseHash: c.hash, raw: JSON.stringify({ plugins: { entries: { 'deterministic-router': { config: { mode, autoSessionKeyHashes: hashes, ...(firstTurn ? { autoSpawnParentGrants: grants ?? null } : {}) } } } } }), replacePaths: ['plugins.entries.deterministic-router.config.autoSessionKeyHashes', ...(firstTurn ? ['plugins.entries.deterministic-router.config.autoSpawnParentGrants'] : [])] });
     const actual = router((await get()).config), s = await status();
-    assert(actual?.mode === mode && same(actual.autoSessionKeyHashes, hashes) && s?.status === 'available' && (s.effectiveMode ?? s.mode) === mode && s.autoSessionAllowlistCount === hashes.length && s.protectManualSelection === true && s.requireSessionKeyForAuto === true, 'TEST router guards not verified');
+    assert(actual?.mode === mode && same(actual.autoSessionKeyHashes, hashes) && (!firstTurn || same(actual.autoSpawnParentGrants ?? null, grants ?? null)) && s?.status === 'available' && (s.effectiveMode ?? s.mode) === mode && s.autoSessionAllowlistCount === hashes.length && (!firstTurn || s.autoSpawnParentGrantCount === (grants?.length ?? 0)) && s.protectManualSelection === true && s.requireSessionKeyForAuto === true, 'TEST router guards not verified');
   };
   const setAgent = async model => {
     const c = await get();
@@ -69,14 +71,24 @@ export async function runChildPhase(rpc, options, phase, prior) {
     const parent = await describe(o.parentSession);
     assert(parent?.sessionId && parent.agentId === o.agentId && parent.createdVia === 'operator' && parent.createdActor?.type === 'human' && parent.createdActor?.identity?.type === 'profile' && parent.createdActor.identity.id === o.ownerProfileId && parent.hasActiveRun === false, 'Human-owned idle parent unavailable');
     assert((parent.modelOverrideSource === null || parent.modelOverrideSource === 'default') && !parent.modelOverride && !parent.providerOverride, 'Parent has a manual model selection or unknown selection state');
-    if (phase === 'parent') {
+    if (phase === 'parent' || firstTurn) {
+      let grant;
+      if (firstTurn) {
+        assert(Array.isArray(baseline.autoSpawnParentGrants) ? baseline.autoSpawnParentGrants.length === 0 : baseline.autoSpawnParentGrants === undefined, 'Existing TEST spawn grants are outside this experiment');
+        assert(baseline.autoSessionKeyHashes.length === 0, 'Existing TEST AUTO allowlist is outside this experiment');
+        assert(s.autoSpawnParentGrantCount === 0, 'First-turn candidate build not loaded or grant baseline unknown');
+        assert(typeof rpc.readAuthoritativeSession === 'function', 'Authoritative TEST session reader unavailable');
+        const authoritativeParent = await rpc.readAuthoritativeSession(o.parentSession);
+        assert(authoritativeParent?.sessionId === parent.sessionId && typeof authoritativeParent.lifecycleRevision === 'string' && authoritativeParent.lifecycleRevision.length > 0 && authoritativeParent.createdVia === 'operator' && authoritativeParent.createdActor?.type === 'human' && authoritativeParent.createdActor.source === 'profile' && authoritativeParent.createdActor.id === o.ownerProfileId && authoritativeParent.spawnDepth === 0 && authoritativeParent.archivedAt === undefined, 'Exact parent incarnation/creator unavailable');
+        grant = { parentSessionKeyHash: digest(o.parentSession), parentSessionId: parent.sessionId, parentLifecycleRevision: authoritativeParent.lifecycleRevision, parentCreatorProfileId: o.ownerProfileId };
+      }
       const tools = await call('tools.effective', { sessionKey: o.parentSession });
       assert(tools?.agentId === o.agentId && tools.toolAccess?.checked === 'live-session' && tools.toolAccess.tools?.some(tool => tool.id === 'sessions_spawn' && tool.status === 'available') && tools.groups?.some(group => group.tools?.some(tool => tool.id === 'sessions_spawn' && tool.source === 'core' && tool.deniedBySession !== true)), 'OpenClaw sessions_spawn unavailable in TEST parent effective tool preview');
       assert(!o.recoveryPending, 'Outstanding private recovery file');
       if (o.dryRun) return { ...report, result: 'READY', restoration: 'NOT_NEEDED', gatewayMutations: 0 };
-      await o.onBaseline?.({ kind: 'child', router: baseline, agentModel: defaultModel, agentId: o.agentId, sessionA: o.parentSession, sessionAId: parent.sessionId });
+      await o.onBaseline?.({ kind: 'child', firstTurn, router: baseline, agentModel: defaultModel, agentId: o.agentId, sessionA: o.parentSession, sessionAId: parent.sessionId });
       if (defaultModel !== 'openai/gpt-6-sol') await setAgent('openai/gpt-6-sol');
-      await setRouter('auto', [digest(o.parentSession)]);
+      await setRouter('auto', [digest(o.parentSession)], firstTurn ? [grant] : undefined);
       assert(!o.shouldStop?.(), 'Operator interrupted before parent send');
       const startedAt = new Date(Date.now() - 1000).toISOString();
       report.turns = 1;
@@ -97,6 +109,10 @@ export async function runChildPhase(rpc, options, phase, prior) {
       for (let attempt = 0; child?.hasActiveRun && attempt < 80; attempt++) { await pause(250); child = await describe(children[0].key); }
       assert(child?.sessionId && child.sessionId !== parent.sessionId && child.agentId === o.agentId && child.spawnDepth === parent.spawnDepth + 1 && child.createdVia === 'spawn' && child.createdActor?.type === 'agent' && child.createdActor.id === o.agentId && child.parentSessionKey === o.parentSession && child.hasActiveRun === false, 'Child provenance or idle state mismatch');
       assert(child.modelOverrideSource === 'auto' && child.modelProvider === 'openai' && child.model === 'gpt-6-sol', 'Child did not inherit an automatic Sol starting model');
+      if (firstTurn) {
+        const authoritativeChild = await rpc.readAuthoritativeSession(children[0].key);
+        assert(authoritativeChild?.sessionId === child.sessionId && authoritativeChild.lifecycleRevision && authoritativeChild.createdVia === 'spawn' && authoritativeChild.createdActor?.type === 'agent' && authoritativeChild.createdActor.id === o.agentId && authoritativeChild.spawnDepth === 1 && authoritativeChild.parentSessionKey === o.parentSession && authoritativeChild.spawnedBy === o.parentSession && authoritativeChild.spawnedBySessionId === grant.parentSessionId && authoritativeChild.parentSessionLifecycleRevision === grant.parentLifecycleRevision && authoritativeChild.modelOverrideSource === 'auto', 'Authoritative child spawn lineage or model selection mismatch');
+      }
       let records = await rpc.readAllEvidence(startedAt);
       const parentHash = digest(o.parentSession).slice(0, 16), childHash = digest(children[0].key).slice(0, 16);
       const decisions = records.filter(x => x.verificationLevel === 'selected-only' && x.decisionId && [parentHash, childHash].includes(x.sessionKeyHash));
@@ -108,11 +124,13 @@ export async function runChildPhase(rpc, options, phase, prior) {
       const runIds = new Set(decisions.map(x => x.runId));
       report.turns = runIds.size;
       report.cases = [
-        { id: 'parent', runId: ack.runId, sessionKeyHash: parentHash, tier: p.effectiveTier, selectedModel: `${p.selectedProvider}/${p.selectedModel}`, applied: p.applied, resolvedModel: resolvedModel(records, p) },
-        { id: 'child-bootstrap', runId: d.runId, sessionKeyHash: childHash, tier: d.effectiveTier, selectedModel: `${d.selectedProvider}/${d.selectedModel}`, applied: d.applied, manualLock: d.manualLock, resolvedModel: resolvedModel(records, d) },
+        { id: 'parent', runId: ack.runId, sessionKeyHash: parentHash, tier: p.effectiveTier, selectedModel: `${p.selectedProvider}/${p.selectedModel}`, applied: p.applied, autoAuthorization: p.autoAuthorization, resolvedModel: resolvedModel(records, p) },
+        { id: 'child-bootstrap', runId: d.runId, sessionKeyHash: childHash, tier: d.effectiveTier, selectedModel: `${d.selectedProvider}/${d.selectedModel}`, applied: d.applied, manualLock: d.manualLock, autoAuthorization: d.autoAuthorization, resolvedModel: resolvedModel(records, d) },
       ];
-      assert(report.turns >= 2 && report.turns <= 3 && p.applied === true && ['COMPLEX','REASONING'].includes(p.effectiveTier) && p.selectedProvider === 'openai' && p.selectedModel === 'gpt-6-sol' && report.cases[0].resolvedModel === 'openai/gpt-6-sol', 'Parent strong-model evidence or turn budget mismatch');
-      assert(d.agentId === o.agentId && d.runId !== ack.runId && d.manualLock === false && d.applied === false && d.reason === 'session is not allowlisted for AUTO; fail-closed without override' && report.cases[1].resolvedModel === 'openai/gpt-6-sol', 'Child bootstrap or OpenClaw resolution not confirmed');
+      assert(report.turns >= 2 && report.turns <= 3 && p.applied === true && (!firstTurn || p.autoAuthorization === 'exact-session') && ['COMPLEX','REASONING'].includes(p.effectiveTier) && p.selectedProvider === 'openai' && p.selectedModel === 'gpt-6-sol' && report.cases[0].resolvedModel === 'openai/gpt-6-sol', 'Parent strong-model evidence or turn budget mismatch');
+      assert(d.agentId === o.agentId && d.runId !== ack.runId && d.manualLock === false && (firstTurn
+        ? d.mode === 'auto' && d.applied === true && d.autoAuthorization === 'spawn-parent' && ['SIMPLE', 'MEDIUM'].includes(d.effectiveTier) && d.selectedProvider === 'openai' && d.selectedModel === 'gpt-6-luna' && report.cases[1].resolvedModel === 'openai/gpt-6-luna'
+        : d.applied === false && d.reason === 'session is not allowlisted for AUTO; fail-closed without override' && report.cases[1].resolvedModel === 'openai/gpt-6-sol'), 'Child bootstrap or OpenClaw resolution not confirmed');
       report.child = { key: children[0].key, sessionId: child.sessionId, runId: d.runId, parentKey: o.parentSession, parentSessionId: parent.sessionId };
       report.result = 'PASS';
     } else {
@@ -147,7 +165,7 @@ export async function runChildPhase(rpc, options, phase, prior) {
     throw cause;
   } finally {
     const failures = [];
-    if (routerArmed) try { await setRouter(baseline.mode, baseline.autoSessionKeyHashes); } catch (cause) { failures.push(cause); }
+    if (routerArmed) try { await setRouter(baseline.mode, baseline.autoSessionKeyHashes, baseline.autoSpawnParentGrants); } catch (cause) { failures.push(cause); }
     if (agentArmed) try { await setAgent(defaultModel); } catch (cause) { failures.push(cause); }
     if (routerArmed || agentArmed) try { await verifyBaseline(); } catch (cause) { failures.push(cause); }
     if (failures.length) {
