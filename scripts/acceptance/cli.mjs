@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync, chmodSync, existsSync, unlinkSync, renameSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, sign } from 'node:crypto';
+import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { GatewayClient } from '@openclaw/gateway-client';
@@ -10,6 +10,7 @@ import { runControls, validateControlOptions } from './controls.mjs';
 import { runLifecycle, validateLifecycleOptions } from './lifecycle.mjs';
 import { runChildPhase, validateChildOptions } from './child.mjs';
 import { parseJournal } from './evidence.mjs';
+import { parseMarkedJsonOutput } from './framing.mjs';
 
 const [action, settingsPath] = process.argv.slice(2);
 if (!['init-device', 'validate', 'dry-run', 'run', 'resume-b', 'dry-run-controls', 'run-controls', 'dry-run-lifecycle', 'run-lifecycle', 'dry-run-child-parent', 'run-child-parent', 'dry-run-child-followup', 'run-child-followup', 'dry-run-child-first-turn', 'run-child-first-turn', 'restore'].includes(action) || !settingsPath) throw new Error('Usage: node scripts/acceptance/cli.mjs <action> <private-settings.json>');
@@ -104,9 +105,10 @@ try {
       const executable = execFileSync('which', ['openclaw'], { encoding: 'utf8' }).trim();
       const packageRoot = dirname(realpathSync(executable));
       const moduleUrl = pathToFileURL(join(packageRoot, 'dist/plugin-sdk/session-store-runtime.js')).href;
-      const script = 'const {getSessionEntry,loadTranscriptEventsSync}=await import(process.argv[1]); const entry=getSessionEntry({agentId:"main",sessionKey:process.argv[2],readConsistency:"latest"}); const priorExactPromptCount=entry&&process.argv[3]?loadTranscriptEventsSync({agentId:"main",sessionId:entry.sessionId,sessionKey:process.argv[2]}).filter(v=>v.message?.role==="user"&&v.message?.content===process.argv[3]).length:undefined; const result=entry?Object.assign({},entry,priorExactPromptCount===undefined?{}:{priorExactPromptCount}):null; process.stdout.write(JSON.stringify(result)); process.exit(0);';
-      const output = execFileSync(process.execPath, ['--input-type=module', '-e', script, moduleUrl, key, exactPrompt ?? ''], { encoding: 'utf8', timeout: 20000, maxBuffer: 1024 * 1024, env: { ...process.env, OPENCLAW_STATE_DIR: '/home/stduser/.openclaw-router-test' } });
-      return JSON.parse(output);
+      const marker = `ISSUE8_AUTHORITATIVE_SESSION_${randomUUID()}_END`;
+      const script = 'const {getSessionEntry,loadTranscriptEventsSync}=await import(process.argv[1]); const entry=getSessionEntry({agentId:"main",sessionKey:process.argv[2],readConsistency:"latest"}); const priorExactPromptCount=entry&&process.argv[3]?loadTranscriptEventsSync({agentId:"main",sessionId:entry.sessionId,sessionKey:process.argv[2]}).filter(v=>v.message?.role==="user"&&v.message?.content===process.argv[3]).length:undefined; const result=entry?Object.assign({},entry,priorExactPromptCount===undefined?{}:{priorExactPromptCount}):null; const frame=process.argv[4]; process.stdout.write(frame+JSON.stringify(result)+frame,()=>process.exit(0));';
+      const output = execFileSync(process.execPath, ['--input-type=module', '-e', script, moduleUrl, key, exactPrompt ?? '', marker], { encoding: 'utf8', timeout: 20000, maxBuffer: 1024 * 1024, env: { ...process.env, OPENCLAW_STATE_DIR: '/home/stduser/.openclaw-router-test' } });
+      return parseMarkedJsonOutput(output, marker);
     },
   };
   const recoveryFile = settings.deviceFile + '.restore.json';

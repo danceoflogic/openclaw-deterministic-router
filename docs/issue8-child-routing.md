@@ -55,6 +55,8 @@ PASS requires one genuine same-agent OpenClaw child, authoritative spawn lineage
 
 Before any new live attempt, capture the current TEST build/config hashes, load this PR's candidate into **TEST only**, verify its build hash and SHADOW safeguards, and require the read-only command below to return READY. A separate approval must cover the temporary TEST build/config change and a new **maximum four-turn** OpenClaw inference window. The previous completed test's approval cannot be reused. Restore the captured TEST build/config afterward and verify Gateway health; never merge or touch production as a side effect.
 
+After a Gateway restart, wait for the current process's final `[gateway] ready` event, not merely an active service or bound TCP socket. In the observed TEST startup, TCP bind preceded readiness by about 31 seconds; a premature client handshake timed out even though the existing operator device remained paired. Verify the exact existing device before considering any pairing change. The authoritative-session subprocess now frames its JSON with a unique marker and flushes it before exiting, so SDK stdout diagnostics outside that frame cannot corrupt the read; missing or ambiguous framing still blocks the gate.
+
 ```bash
 node scripts/acceptance/cli.mjs dry-run-child-first-turn /home/stduser/.openclaw-router-test/operator-acceptance-settings-child-first-turn.json
 # Only after separate approval and READY:
