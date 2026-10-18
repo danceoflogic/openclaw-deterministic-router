@@ -1,4 +1,16 @@
-# Current status — 2026-10-17
+# Current status — 2026-10-18
+
+**Functional TEST beta accepted.** In isolated OpenClaw **2026.10.4 TEST**, the five ordinary-turn controls passed on 17 October ([Issue #7 decision](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7#issuecomment-6241094208)): manual Sol precedence, Sol-default → Luna AUTO, clear/default → AUTO, SHADOW and OFF. On 18 October, genuine OpenClaw `sessions_spawn` independently routed a **new child's first turn to Luna** through `spawn-parent`, with no explicit child model override. Parent REASONING→Sol and parent completion MEDIUM→Luna also resolved independently: **3 of 4 approved turns**, no retries ([Issue #8](https://github.com/danceoflogic/openclaw-deterministic-router/issues/8#issuecomment-6252069728)). A separate existing-child follow-up passed. These establish OpenClaw **agent-turn-level** routing, not every upstream provider request.
+
+**Source and isolation.** [PR #40](https://github.com/danceoflogic/openclaw-deterministic-router/pull/40) merged as `217c5ae` on 18 October, after passing CI. Its first-turn parent grants default empty, while SHADOW/manual/session safety defaults are retained. After testing, TEST returned to its original verified build/config, healthy SHADOW, empty AUTO authorizations, both guards enabled. **Production is unchanged**; merge did not start a pilot or authorize general AUTO.
+
+**Deferred, not PASS:** live reset/delete/same-key recreation and unknown-state injections ([#7](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7)), independent provider-request accounting, actual cost/quality effects, performance/restart measurements ([#9](https://github.com/danceoflogic/openclaw-deterministic-router/issues/9)) and version/reproducibility policy ([#12](https://github.com/danceoflogic/openclaw-deterministic-router/issues/12)). [#10](https://github.com/danceoflogic/openclaw-deterministic-router/issues/10) remains the release/rollout tracker; per-tier thinking effort is not enforced.
+
+**Next:** prepare a separately authorized small SHADOW-first real-world evaluation. Do not rerun the completed five controls or Issue #8 child tests just to recreate evidence. Historical text below is reference, not current execution direction.
+
+---
+
+## Historical checkpoint — 2026-10-17 (superseded)
 
 **Bounded TEST routing checks passed; Issue #7 remains open.** On isolated OpenClaw 2026.10.4 TEST, the owner-approved two-turn A/B window verified manual Sol precedence over AUTO and a genuine default-Sol to routed-Luna switch. A separately approved three-turn window verified clearing the manual choice resumes AUTO, `shadow` logs without applying the Luna candidate, and `off` emits no router decision. Both windows used their exact ceilings (2/2 and 3/3), with no retries. Correlated router audits, persisted selection/default state, completed turns, and OpenClaw-reported resolved models support these **functional** results. See [Issue #7](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7#issuecomment-6239935075) and its [controls result](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7#issuecomment-6240041352).
 

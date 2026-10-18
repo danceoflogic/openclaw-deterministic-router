@@ -1,10 +1,12 @@
 # Implementation plan
 
+**18 October 2026 checkpoint:** Deterministic routing, five ordinary-turn controls and independently routed existing-/first-turn OpenClaw child turns passed in isolated OpenClaw 2026.10.4 TEST. PR #40 merged, production unchanged. The phases below document historical implementation and continuing release requirements, **not permission to rerun successful inference gates**. Next focus: separately authorised real-world evidence and release compatibility.
+
 ## Phase 0 — Baseline
 
-- Target OpenClaw `2026.9.8` for current integration. Retain `2026.9.6` findings as historical baseline evidence.
+- Accepted functional TEST target: OpenClaw `2026.10.4`. Development dependency and CI loader smoke remain `2026.9.8`; `2026.9.6` findings are historical.
 - Pin Router Core to `5ee7c23c993013a8052588191569db5cf7fb793c`.
-- Record the exact deployed OpenClaw version and verify it is `2026.9.8` before running the current compatibility suite.
+- Record the exact installed OpenClaw version for each compatibility run. Never downgrade the owner-accepted 2026.10.4 TEST solely to match older notes.
 - Run deterministic golden fixtures repeatedly.
 - Confirm no routing-time network/LLM call occurs.
 

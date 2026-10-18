@@ -7,7 +7,7 @@ A local, deterministic and auditable model-routing plugin for OpenClaw.
 
 The project is designed for one job: **route each eligible OpenClaw turn to an explicitly configured model without spending an LLM call to decide which model should answer.**
 
-> **Project status (18 October 2026):** experimental / shadow-first. On isolated **OpenClaw 2026.10.4 TEST**, bounded ordinary-turn checks passed and Issue #8's existing-child per-agent-turn routing passed. A new first-turn direct-child grant is implemented offline in draft PR #40 but has **not** had live acceptance; provider-request accounting remains deferred. Issue #7's lifecycle and unknown-state checks remain tracked separately. No production AUTO rollout is implied. See [current progress](PROGRESS.md).
+> **Project status (18 October 2026): functional routing beta verified in isolated OpenClaw 2026.10.4 TEST.** Five ordinary-turn controls and independent existing-child and **first-turn** `sessions_spawn` routing passed. A child was routed to Luna on its very first turn via `spawn-parent`, without an explicit child model override. [PR #40](https://github.com/danceoflogic/openclaw-deterministic-router/pull/40) is merged into `main`. TEST was restored; production was untouched. Provider-request verification, live lifecycle fault cases, actual cost savings and wider rollout remain separate. See [PROGRESS.md](PROGRESS.md).
 
 ## Why this exists
 
@@ -47,7 +47,7 @@ Every target is configurable. Thinking effort is recorded as policy intent only:
 - **Policy separate from classification.** Model mappings can change without changing classifier logic.
 - **Reproducible provenance.** The classifier dependency is pinned to an immutable upstream commit.
 
-Architectural direction and implementation boundaries are recorded in [ADR 0002: Routing authority, eligibility, fallback and evaluation](docs/decisions/0002-routing-boundaries-and-evaluation.md). This is a future design contract, **not** a claim that AUTO or multi-agent routing has passed acceptance.
+Architectural direction and implementation boundaries are recorded in [ADR 0002: Routing authority, eligibility, fallback and evaluation](docs/decisions/0002-routing-boundaries-and-evaluation.md). This remains the future design contract for broader authority, capabilities and recovery; bounded AUTO and independent per-agent-turn routing have now passed TEST, not general rollout.
 
 ## Router Core provenance
 
@@ -81,7 +81,7 @@ Apply `providerOverride` and `modelOverride` from `before_model_resolve`, subjec
 
 | OpenClaw version | Status |
 |---|---|
-| `2026.10.4` | Isolated TEST runtime for the bounded Issue #7 functional routing checks; this is not a blanket compatibility or rollout claim for `main` |
+| `2026.10.4` | Isolated TEST ordinary-turn and existing-/first-turn OpenClaw child functional acceptance; not blanket compatibility or production approval |
 | `2026.9.8` | Committed development dependency target; historical Worktop shadow attachment behaviour verified |
 | `2026.9.6` | Historical baseline; retained as the declared minimum, not the current validation target |
 | Other versions | Re-run the hook compatibility gates before enabling `auto` |
@@ -178,27 +178,23 @@ The implementation plan explicitly tests this before production `auto` mode.
 
 ## Functional beta milestone
 
-A basic functional beta means the following have been demonstrated on the current OpenClaw target; it does **not** mean AUTO is the default or that a public release is ready:
+The bounded TEST functional beta has demonstrated the following. AUTO is **not** the default and this is not a public-release or general production approval:
 
 | Gate | Current evidence | Remaining work |
 |---|---|---|
 | Deterministic local policy and shadow integration | #2–#5 completed; real document attachment floor passed on Worktop and its fix merged in PR #22 | #6 is closed; #10 now records the completed shadow gate |
 | Bounded ordinary-turn AUTO (#7) | TEST functional A/B, clear-to-default, `shadow`, and `off` passed; #7 remains open | Live lifecycle/reset/deletion/recreation and unknown-state fail-closed checks; owner-side provider accounting is separate |
-| Independent child routing (#8) | Existing-child per-agent-turn routing passed on isolated TEST; see [evidence](docs/issue8-child-routing.md) | Newly added first-turn parent-incarnation grant needs separate live TEST acceptance; provider-request accounting remains deferred |
+| Independent child routing (#8) | Existing-child follow-up and **automatic first-turn** child Luna routing passed on TEST; [evidence](docs/issue8-child-routing.md), merged PR #40 | Provider-request accounting and broad rollout remain separate |
 
 After the bounded AUTO tests, restore `shadow`. Release readiness adds measured overhead/restart behaviour (#9), a defensible compatibility and dependency policy (#12), and the remaining [acceptance tracker](https://github.com/danceoflogic/openclaw-deterministic-router/issues/10) checks. See [current progress](PROGRESS.md) and [blockers](BLOCKERS.md) for the evidence boundaries.
 
-## Development roadmap
+## Next: separately approved real-world evaluation
 
-1. Freeze and verify the pinned classifier baseline.
-2. Validate hook event/context shape on the target OpenClaw version.
-3. Verify manual `/model` protection.
-4. Verify subagent behavior independently from the parent model.
-5. Compare routing decisions with the effective runtime model.
-6. Run shadow mode against representative real workloads.
-7. Enable controlled `auto` mode only after the gates pass.
+The deterministic core, manual precedence, bounded ordinary-turn AUTO, `shadow`/`off` and independent child routing passed isolated TEST. Next, evaluate a small redacted real-workload corpus and opt-in SHADOW-first observations of routing quality, task completion, model usage, latency, telemetry and actual costs. No real-world pilot, production deployment or blanket AUTO follows from PR #40's merge.
 
-See [`docs/implementation-plan.md`](docs/implementation-plan.md), the executable [`router acceptance test protocol`](docs/acceptance-test-protocol.md), and the [external operator TEST acceptance runner](docs/operator-acceptance-runner.md).
+Preserve the *unverified* live lifecycle/reset/recreation and fault-injection edges in [#7](https://github.com/danceoflogic/openclaw-deterministic-router/issues/7), track performance in [#9](https://github.com/danceoflogic/openclaw-deterministic-router/issues/9), compatibility/reproducibility in [#12](https://github.com/danceoflogic/openclaw-deterministic-router/issues/12), and rollout in [#10](https://github.com/danceoflogic/openclaw-deterministic-router/issues/10). Defer classifier tuning and per-tier thinking-effort enforcement pending evidence. Do not repeat completed TEST gates solely to recreate proof.
+
+See the [acceptance protocol](docs/acceptance-test-protocol.md) and [child evidence](docs/issue8-child-routing.md).
 
 ## Comparative research
 

@@ -20,9 +20,9 @@ A Router Core upgrade must be deliberate. Update the pinned commit, rerun the fi
 
 ## OpenClaw integration tests
 
-The current integration target is **OpenClaw 2026.9.8**. The runtime tests are intentionally separate from unit tests because hook boundaries are host-version dependent.
+**Accepted functional TEST target: OpenClaw 2026.10.4** (ordinary-turn and independent existing-/first-turn child controls passed). The committed development dependency and CI loader smoke remain **2026.9.8**; 2026.9.6 is historical. Version-specific evidence is not a blanket compatibility claim. Do not revert the accepted TEST target to 2026.9.8 merely to follow older notes.
 
-Before the scenarios below, record `openclaw --version` and fail the current compatibility run if the target is not `2026.9.8` unless a deliberate compatibility-validation branch is being used.
+The integration scenarios below are repeatable regression/release requirements, **not orders to rerun accepted #7/#8 inference**. Record the installed version for each new compatibility exercise. Standalone offline acceptance-runner tests use `npm run test:acceptance:operator` and are separate from `npm run check`.
 
 Minimum scenarios:
 

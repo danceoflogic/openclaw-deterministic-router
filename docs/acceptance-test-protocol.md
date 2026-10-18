@@ -2,6 +2,8 @@
 
 This is the canonical acceptance protocol. **Current TEST acceptance target (owner-approved 2026-10-17): OpenClaw 2026.10.4.** Historical observations on 2026.9.8 and 2026.9.6 remain version-labelled, not current TEST requirements. The 2026-10-17 Issue #7 evidence-policy amendment below supersedes older requirements wherever they conflict.
 
+**Current functional evidence (18 October 2026):** The five ordinary-turn Issue #7 controls passed on 17 October. Both existing-child and automatic **first-turn** OpenClaw `sessions_spawn` routing passed on 18 October, including a `spawn-parent` Luna decision with no explicit child override ([#8 acceptance](https://github.com/danceoflogic/openclaw-deterministic-router/issues/8#issuecomment-6252069728)). PR #40 is merged, TEST was restored and production was unchanged. Sequences below remain historical procedures, **not orders to rerun completed TEST gates**. Live lifecycle/reset/fault cases, provider-request accounting, measured savings and general rollout remain separately gated.
+
 Track progress in [issue #10](https://github.com/danceoflogic/openclaw-deterministic-router/issues/10).
 
 ## Principles
@@ -105,7 +107,7 @@ With default `minAttachmentTier=MEDIUM`, expect the attached turn to promote SIM
 
 The pinned OpenClaw 2026.9.6 and live Worktop 2026.9.8 builds construct `before_model_resolve.attachments` from images only. For Gateway document uploads, Worktop stages non-image media facts on `reply_dispatch` before model resolution. The router correlates that event by run ID and session key, retains only attachment kinds/count and a classification of `BodyForCommands` (the original user text), and merges it with image metadata at `before_model_resolve`. This avoids classifying the media marker appended to the projected prompt. A plugin-level test checks this two-hook contract; the real Worktop 2026.9.8 Gateway document turn produced the expected shadow audit result. Keep the source-integration and issue-closure status separate from that behavioural result. Do not substitute a filename mentioned in text or an image-only test for the real document test.
 
-## Gate D: bounded AUTO validation
+## Gate D: bounded AUTO validation (functional TEST acceptance complete)
 
 Issues:
 
@@ -118,7 +120,7 @@ Issues:
 
 Issue #7 has **two explicitly distinct outcomes**:
 
-1. **Functional routing acceptance (blocking Issue #7's functional gate):** authenticate a genuine ordinary TEST Control UI turn; establish the operator's model choice and agent-scoped persisted selection where applicable; examine the router's classifier, `manualLock`, `applied`, and requested selection; and confirm OpenClaw reports the turn completed. Capture available model/session/run identifiers or bounded timestamps using the existing records. OpenClaw's documented selection and resolved-model reporting can be accepted as the runtime's representation of execution. This does **not** establish the identity of every upstream provider request.
+1. **Functional routing acceptance (accepted under Issue #7 on 17 October 2026):** authenticate a genuine ordinary TEST Control UI turn; establish the operator's model choice and agent-scoped persisted selection where applicable; examine the router's classifier, `manualLock`, `applied`, and requested selection; and confirm OpenClaw reports the turn completed. Capture available model/session/run identifiers or bounded timestamps using the existing records. OpenClaw's documented selection and resolved-model reporting can be accepted as the runtime's representation of execution. This does **not** establish the identity of every upstream provider request.
 2. **Independent provider-model verification (non-blocking follow-up):** the owner can inspect **turn-level model accounting in their own OpenAI logs**. Where those records genuinely identify and associate a specific completed test turn and model, report that turn-level association; where they are only time-window totals, report aggregate evidence. Never invent correlation or claim a provider-level result before the logs are reviewed. A discrepancy is actionable and may reopen acceptance.
 
 **Do not require** native Codex `model.call.completed`, per-provider-request or `selectionReceipt` receipts, exact in-memory bundle hashing, or new observability instrumentation solely to pass the functional A/B gate. Existing telemetry remains useful when available, but absence of a separately corroborating native diagnostic is not itself a failure. A router `applied=true` value alone is **not** proof of upstream model execution. Record observations at their actual evidence level.
@@ -138,6 +140,9 @@ Keep turns short and bounded by the owner's approved TEST window; **count any bo
 **Execution focus:** run the next permitted human-assisted TEST turn, inspect what happened, correct a demonstrated failure, and continue. Do not repeat successful offline synthetic scoped-selection tests or commission redundant Sol/Luna reviews in place of execution.
 
 ### Subagents
+
+**18 October 2026 result:** Genuine OpenClaw `sessions_spawn` produced independent child decisions in TEST, first on an existing-child follow-up and then on the newly spawned child's **first** turn. The latter used the new guarded parent-incarnation grant, not a child model override. These are agent-turn-level results only. [Accepted evidence](issue8-child-routing.md). The remaining future-tense procedure is historical.
+
 
 Create a strong parent task and a deliberately trivial child task.
 
