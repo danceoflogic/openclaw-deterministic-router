@@ -209,6 +209,7 @@ describe("plugin registration contract", () => {
     });
 
     expect(shadow).toMatchObject({ status: "available", mode: "shadow" });
+    expect(shadow.autoSpawnParentGrantCount).toBe(0);
     expect(replacement).toMatchObject({
       status: "available",
       pluginId: "deterministic-router",
@@ -216,6 +217,7 @@ describe("plugin registration contract", () => {
       protectManualSelection: false,
       requireSessionKeyForAuto: false,
       autoSessionAllowlistCount: 1,
+      autoSpawnParentGrantCount: 0,
     });
     expect(replacement.registrationId).not.toBe(shadow.registrationId);
   });
@@ -266,6 +268,7 @@ describe("plugin registration contract", () => {
       protectManualSelection: null,
       requireSessionKeyForAuto: null,
       autoSessionAllowlistCount: null,
+      autoSpawnParentGrantCount: null,
     }), undefined);
   });
 
@@ -640,6 +643,118 @@ describe("plugin registration contract", () => {
         applied: true,
       }),
     ]));
+  });
+
+  it("routes a child's automatic inherited Sol selection when its exact key is allowlisted", () => {
+    const on = vi.fn();
+    const info = vi.fn();
+    const childKey = "agent:main:subagent:child-test";
+    plugin.register({
+      pluginConfig: { mode: "auto", autoSessionKeyHashes: [createHash("sha256").update(childKey).digest("hex")] },
+      registerHook: vi.fn(), on,
+      runtime: { agent: { session: { getSessionEntry: vi.fn(() => ({
+        sessionId: "child-generation", modelOverrideSource: "auto",
+        providerOverride: "openai", modelOverride: "gpt-6-sol",
+      })) } } },
+      logger: { info, warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    } as never);
+    const hook = on.mock.calls.find(([name]) => name === "before_model_resolve")?.[1] as (
+      event: { prompt: string }, context: { sessionKey: string; runId: string; agentId: string },
+    ) => unknown;
+    expect(hook({ prompt: "Hello" }, { sessionKey: childKey, runId: "child-run", agentId: "main" }))
+      .toMatchObject({ providerOverride: "openai", modelOverride: "gpt-6-luna" });
+    const record = info.mock.calls.map(([value]) => String(value)).find(x => x.includes('"runId":"child-run"'));
+    expect(record).toContain('"manualLock":false');
+    expect(record).toContain('"applied":true');
+  });
+
+  it("routes a new child's first turn from its own task under an exact parent-incarnation grant", () => {
+    const on = vi.fn();
+    const info = vi.fn();
+    const parentKey = "agent:main:dashboard:approved-parent";
+    const childKey = "agent:main:subagent:83751ee6-aafb-46a5-ab2a-b30b90b3a3d7";
+    const child = {
+      sessionId: "child-generation", lifecycleRevision: "child-revision",
+      createdVia: "spawn", createdActor: { type: "agent", id: "main" }, spawnDepth: 1,
+      modelOverrideSource: "auto", providerOverride: "openai", modelOverride: "gpt-6-sol",
+      parentSessionKey: parentKey, spawnedBy: parentKey,
+      spawnedBySessionId: "parent-generation", parentSessionLifecycleRevision: "parent-revision",
+    };
+    const parent = {
+      sessionId: "parent-generation", lifecycleRevision: "parent-revision",
+      createdVia: "operator", createdActor: { type: "human", source: "profile", id: "owner" },
+      spawnDepth: 0,
+    };
+    const getSessionEntry = vi.fn(({ sessionKey }: { sessionKey: string }) =>
+      sessionKey === childKey ? child : sessionKey === parentKey ? parent : undefined);
+    plugin.register({
+      pluginConfig: {
+        mode: "auto", autoSessionKeyHashes: [],
+        autoSpawnParentGrants: [{
+          parentSessionKeyHash: createHash("sha256").update(parentKey).digest("hex"),
+          parentSessionId: "parent-generation", parentLifecycleRevision: "parent-revision",
+          parentCreatorProfileId: "owner",
+        }],
+      },
+      registerHook: vi.fn(), on,
+      runtime: { agent: { session: { getSessionEntry } } },
+      logger: { info, warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    } as never);
+    const resolve = on.mock.calls.find(([name]) => name === "before_model_resolve")?.[1] as
+      (event: { prompt: string }, ctx: { sessionKey: string; runId: string; agentId: string }) => unknown;
+    const ctx = { sessionKey: childKey, agentId: "main" };
+    expect(resolve({ prompt: "Hello" }, { ...ctx, runId: "simple-child" }))
+      .toMatchObject({ providerOverride: "openai", modelOverride: "gpt-6-luna" });
+    expect(resolve({ prompt: "Prove this theorem formally, step by step, and derive the result." },
+      { ...ctx, runId: "reasoning-child" }))
+      .toMatchObject({ providerOverride: "openai", modelOverride: "gpt-6-sol" });
+    const audits = info.mock.calls.map(([message]) => JSON.parse(String(message).slice("[deterministic-router] ".length)));
+    expect(audits.map(({ applied, autoAuthorization }) => ({ applied, autoAuthorization }))).toEqual([
+      { applied: true, autoAuthorization: "spawn-parent" },
+      { applied: true, autoAuthorization: "spawn-parent" },
+    ]);
+    child.modelOverrideSource = "user";
+    expect(resolve({ prompt: "Hello" }, { ...ctx, runId: "manual-child" })).toBeUndefined();
+    expect(getSessionEntry).toHaveBeenCalledWith({
+      agentId: "main", sessionKey: childKey, readConsistency: "latest",
+    });
+  });
+
+  it.each([
+    ["shadow mode", { mode: "shadow" }],
+    ["manual protection disabled", { protectManualSelection: false }],
+    ["session-key requirement disabled", { requireSessionKeyForAuto: false }],
+  ])("does not activate a direct-child grant with %s", (_label, change) => {
+    const on = vi.fn();
+    const parentKey = "agent:main:dashboard:approved-parent";
+    const childKey = "agent:main:subagent:83751ee6-aafb-46a5-ab2a-b30b90b3a3d7";
+    plugin.register({
+      pluginConfig: {
+        mode: "auto", autoSpawnParentGrants: [{
+          parentSessionKeyHash: createHash("sha256").update(parentKey).digest("hex"),
+          parentSessionId: "parent-generation", parentLifecycleRevision: "parent-revision",
+          parentCreatorProfileId: "owner",
+        }], ...change,
+      },
+      registerHook: vi.fn(), on,
+      runtime: { agent: { session: { getSessionEntry: vi.fn(({ sessionKey }: { sessionKey: string }) =>
+        sessionKey === childKey ? {
+          sessionId: "child-generation", lifecycleRevision: "child-revision",
+          createdVia: "spawn", createdActor: { type: "agent", id: "main" }, spawnDepth: 1,
+          modelOverrideSource: "auto", providerOverride: "openai", modelOverride: "gpt-6-sol",
+          parentSessionKey: parentKey, spawnedBy: parentKey,
+          spawnedBySessionId: "parent-generation", parentSessionLifecycleRevision: "parent-revision",
+        } : {
+          sessionId: "parent-generation", lifecycleRevision: "parent-revision",
+          createdVia: "operator", createdActor: { type: "human", source: "profile", id: "owner" },
+          spawnDepth: 0,
+        }) } } },
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    } as never);
+    const resolve = on.mock.calls.find(([name]) => name === "before_model_resolve")?.[1] as
+      (event: { prompt: string }, ctx: { sessionKey: string; runId: string; agentId: string }) => unknown;
+    expect(resolve({ prompt: "Hello" }, { sessionKey: childKey, runId: "child", agentId: "main" }))
+      .toBeUndefined();
   });
 
   it("fails closed on malformed identity/selection and only resumes for a known-clear incarnation", () => {

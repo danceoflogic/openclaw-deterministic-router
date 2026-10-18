@@ -36,4 +36,19 @@ describe("AUTO session allowlist configuration", () => {
     expect(DEFAULT_PLUGIN_CONFIG.mode).toBe("shadow");
     expect(parsePluginConfig({}).mode).toBe("shadow");
   });
+
+  it("keeps direct-child grants empty unless every parent incarnation field is valid", () => {
+    const grant = {
+      parentSessionKeyHash: "a".repeat(64),
+      parentSessionId: "parent-session",
+      parentLifecycleRevision: "parent-revision",
+      parentCreatorProfileId: "owner-profile",
+    };
+    expect(parsePluginConfig({}).autoSpawnParentGrants).toEqual([]);
+    expect(parsePluginConfig({ autoSpawnParentGrants: [grant, grant] }).autoSpawnParentGrants).toEqual([grant]);
+    expect(parsePluginConfig({ autoSpawnParentGrants: [grant, { ...grant, parentSessionId: " " }] })
+      .autoSpawnParentGrants).toEqual([]);
+    expect(parsePluginConfig({ autoSpawnParentGrants: [grant, { ...grant, parentSessionKeyHash: "*" }] })
+      .autoSpawnParentGrants).toEqual([]);
+  });
 });

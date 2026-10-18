@@ -4,6 +4,7 @@ import { InboundAttachmentRegistry, mergeAttachmentSummaries } from "./attachmen
 import { parsePluginConfig } from "./config.js";
 import { onNativeModelCallDiagnostic } from "./native-diagnostics.js";
 import { routeWork } from "./route-work.js";
+import { isAuthorizedDirectSpawn } from "./spawn-grant.js";
 import {
   applySessionPatch,
   reconcilePersistedSessionEntry,
@@ -34,16 +35,16 @@ function reconcileCurrentSession(
   locks: SessionLockRegistry,
   sessionKey: string | undefined,
   agentId: string | undefined,
-): SessionLockState {
+): { state: SessionLockState; entry?: unknown } {
   if (!sessionKey || !agentId) {
     if (sessionKey) locks.markUnknown(sessionKey);
-    return "unknown";
+    return { state: "unknown" };
   }
 
   const sessionApi = (api as SessionReaderApi).runtime?.agent?.session;
   if (!sessionApi || typeof sessionApi.getSessionEntry !== "function") {
     locks.markUnknown(sessionKey);
-    return "unknown";
+    return { state: "unknown" };
   }
 
   try {
@@ -53,6 +54,7 @@ function reconcileCurrentSession(
       sessionKey,
     });
     reconcilePersistedSessionEntry(locks, sessionKey, sessionEntry);
+    return { state: locks.getState(sessionKey), entry: sessionEntry };
   } catch {
     // A failed or unavailable authoritative read must never fall back to the
     // previous process-local lock: that would allow a stale lock or stale
@@ -60,7 +62,7 @@ function reconcileCurrentSession(
     locks.markUnknown(sessionKey);
   }
 
-  return locks.getState(sessionKey);
+  return { state: locks.getState(sessionKey) };
 }
 
 function getSessionPatchEvent(event: unknown): {
@@ -116,6 +118,7 @@ export default definePluginEntry({
           protectManualSelection: pluginConfigAvailable ? registeredConfig.protectManualSelection : null,
           requireSessionKeyForAuto: pluginConfigAvailable ? registeredConfig.requireSessionKeyForAuto : null,
           autoSessionAllowlistCount: pluginConfigAvailable ? registeredConfig.autoSessionKeyHashes.length : null,
+          autoSpawnParentGrantCount: pluginConfigAvailable ? registeredConfig.autoSpawnParentGrants.length : null,
         }, undefined);
       },
       { scope: "operator.read", profileAccess: "independent" },
@@ -166,9 +169,10 @@ export default definePluginEntry({
       );
 
       const sessionKey = ctx.sessionKey;
-      const selectionState = config.protectManualSelection
+      const session = config.protectManualSelection
         ? reconcileCurrentSession(api, locks, sessionKey, ctx.agentId)
-        : "clear";
+        : { state: "clear" as const };
+      const selectionState = session.state;
       const manualLock = Boolean(
         config.protectManualSelection && selectionState === "locked",
       );
@@ -180,8 +184,24 @@ export default definePluginEntry({
       const sessionHash = sessionKey
         ? createHash("sha256").update(sessionKey, "utf8").digest("hex")
         : undefined;
+      const exactSessionAllowed = Boolean(
+        sessionHash && config.autoSessionKeyHashes.includes(sessionHash),
+      );
+      const spawnedChildAllowed = config.mode === "auto"
+        && !exactSessionAllowed
+        && config.protectManualSelection
+        && config.requireSessionKeyForAuto
+        && selectionState === "clear"
+        && isAuthorizedDirectSpawn({
+          agentId: ctx.agentId,
+          childSessionKey: sessionKey,
+          childEntry: session.entry,
+          grants: config.autoSpawnParentGrants,
+          readSession: (api as SessionReaderApi).runtime?.agent?.session?.getSessionEntry as
+            ((params: { agentId: string; readConsistency: "latest"; sessionKey: string }) => unknown) | undefined,
+        });
       const sessionNotAllowlisted = config.mode === "auto"
-        && (!sessionHash || !config.autoSessionKeyHashes.includes(sessionHash));
+        && !exactSessionAllowed && !spawnedChildAllowed;
       const applied = config.mode === "auto"
         && !manualLock
         && !manualSelectionUnknown
@@ -207,6 +227,9 @@ export default definePluginEntry({
         ...attachmentSummary,
         manualLock,
         applied,
+        autoAuthorization: applied
+          ? spawnedChildAllowed ? "spawn-parent" : "exact-session"
+          : undefined,
         reason,
       });
 

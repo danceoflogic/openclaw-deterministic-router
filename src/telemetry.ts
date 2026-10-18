@@ -19,6 +19,7 @@ export type AuditRecord = {
   verificationLevel: "selected-only";
   manualLock: boolean;
   applied: boolean;
+  autoAuthorization?: "exact-session" | "spawn-parent";
   reason: string;
 };
 
@@ -221,6 +222,7 @@ export function makeAuditRecord(params: {
   attachmentKinds: AttachmentKind[];
   manualLock: boolean;
   applied: boolean;
+  autoAuthorization?: "exact-session" | "spawn-parent";
   reason?: string;
 }): AuditRecord {
   return {
@@ -241,6 +243,7 @@ export function makeAuditRecord(params: {
     verificationLevel: "selected-only",
     manualLock: params.manualLock,
     applied: params.applied,
+    autoAuthorization: params.autoAuthorization,
     reason: params.reason ?? params.decision.reason,
   };
 }

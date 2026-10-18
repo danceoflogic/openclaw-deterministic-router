@@ -1,0 +1,95 @@
+# Issue #8 — independent child routing (TEST acceptance)
+
+Status: **two-phase TEST acceptance passed on 2026-10-18 at the OpenClaw agent-turn level**. The first approved attempt had used a native Codex `spawn_agent` child and was inconclusive. The corrected attempt used an actual OpenClaw `sessions_spawn` child, demonstrated an independently routed Luna follow-up, and restored TEST to its captured SHADOW configuration and prior build. The separately approved first-turn TEST below also passed; provider-request-level accounting remains deferred.
+
+## Installed OpenClaw 2026.10.4 contract
+
+- Every embedded run without `modelSelectionLocked` enters `before_model_resolve` with that run's `runId`, `agentId`, and `sessionKey`. The observed OpenClaw child had its own hook invocation and independent run ID.
+- Native `sessions_spawn` mints `agent:<targetAgentId>:subagent:<uuid>`. For a same-agent spawn without `agentId`, the target is `main`; the child gets a new `sessionId`, `createdVia: "spawn"`, agent creation attribution, and `parentSessionKey`. Its initial model is an **automatic** inherited/configured starting selection (`modelOverrideSource: "auto"`), not a human manual choice.
+- The plugin `subagent.allowModelOverride` / `allowedModels` trust policy controls plugin-owned subagent runtime API model-override requests. It does not gate the ordinary `before_model_resolve` hook return. Do not modify this policy for the test.
+- The Codex harness exposes both native `spawn_agent` and OpenClaw `sessions_spawn`. The prior generic delegation prompt selected a native Codex child, which has no `agent:main:subagent:<uuid>` Gateway session and cannot satisfy this test. The TEST parent's read-only `tools.effective` preview listed the core `sessions_spawn` tool, and sanitized Gateway `chat.history` subsequently confirmed an actual `sessions_spawn` tool call with `runtime="subagent"`, `context="isolated"`, no `agentId`, and no model override.
+- The child UUID is not known before the initial child run. Under the tested exact-key-only policy, neither the parent key nor lineage alone passed AUTO, so the child bootstrap remained non-applied on inherited Sol. The later follow-up proved independent routing only for an existing child; it did **not** prove automatic first-turn child selection. The opt-in parent-incarnation grant was separately tested below.
+
+## Narrow fix and experiment
+
+The router previously interpreted the child's complete persisted `auto` override as a manual lock. `src/session-lock.ts` now treats a **complete, valid** automatic override as clear; malformed or missing information remains unknown/fail-closed, and `user` overrides remain locked. The TEST Gateway must load this candidate before the live experiment.
+
+The existing Gateway operator runner performs two separately restored phases:
+
+1. From a pre-existing, human-owned, idle TEST dashboard session, check the read-only effective-tool preview for `sessions_spawn`, set the TEST `main` default to Sol, and allowlist **only the parent's exact hash**. Send one fixed, genuinely reasoning-heavy cache-consistency/proof task. It explicitly requires the OpenClaw `sessions_spawn` tool with `runtime="subagent"`, `context="isolated"`, and **no `agentId`** (same TEST `main` agent), and forbids native Codex `spawn_agent` and any child model override. Require a genuine `agent:main:subagent:<uuid>` session with spawn provenance, distinct parent/child identities and run IDs, the child's `lastRunId` matching its independent router decision, parent Sol resolution, the child's separate non-applied decision, and the child's inherited Sol resolution. A native Codex child cannot count as PASS. Restore the original agent default, SHADOW mode, and exact allowlist.
+2. After verifying the child's generation, spawn attribution, parent key, idle state, and automatic selection, allowlist **only that child's exact hash**. Send the fixed SIMPLE, read-only follow-up: `Hi. What is the first line of README.md?` Require an applied child Luna decision and correlated OpenClaw runtime-model resolution. Restore SHADOW and the exact original allowlist.
+
+The exact parent prompt classifies REASONING and the follow-up classifies SIMPLE under the pinned rules. Under the tested exact-key-only policy, the child bootstrap could not be AUTO-authorised before its random key was known, so the follow-up was indispensable. That experiment established **per-agent-turn routing for an existing child session**, not automatic first-turn child selection or per-provider-call routing. Provider accounting remains separately deferred.
+
+**Budget:** maximum **four actual inference turns**, counting the parent initial run, child bootstrap, potential parent continuation, and child follow-up. There is no retry after uncertain admission. The runner verifies at most three distinct parent-phase router run IDs before the follow-up; if more appear, it stops. The parent model itself may invoke internal provider calls, which are not separately counted as OpenClaw turns.
+
+## Approved live TEST evidence (2026-10-18)
+
+The parent and follow-up dry-runs were `READY`. Both live phases reported `PASS` with `restoration: PASS`; **three distinct OpenClaw inference turns** were consumed against the four-turn ceiling. Private reports are retained in the TEST profile as `issue8-child-report.child-parent.json` and `issue8-child-report.child-followup.json`.
+
+| Turn | Independent run ID | Router decision | Applied | OpenClaw resolved model |
+| --- | --- | --- | --- | --- |
+| Parent | `349ace6f-7bc6-434a-a5a7-80daeeed55ac` | REASONING → Sol | Yes | `openai/gpt-6-sol` |
+| Child bootstrap | `90244c1f-c279-4941-a506-a519d1f84552` | MEDIUM → Luna | No: new child key was not yet exact-allowlisted | Inherited `openai/gpt-6-sol` |
+| Existing-child follow-up | `8ad14d61-c764-4c63-bff0-aadb522437f7` | SIMPLE → Luna | Yes | `openai/gpt-6-luna` |
+
+The child was a distinct `agent:main:subagent:<uuid>` session with `createdVia: "spawn"`, agent creation attribution, the expected parent session key, and `lastRunId` matching its bootstrap router decision. The parent transcript's actual tool-call receipt confirmed OpenClaw `sessions_spawn`; no native Codex child was counted. The follow-up used the same child session and a different run ID. No plugin subagent model-override permission or wildcard allowlist was needed. The resolved models above are OpenClaw turn-scoped observations; **provider-level request verification remains deferred**.
+
+After the run, the prior TEST `dist/index.js` and `openclaw.json` hashes matched the captured baseline. A fresh read-only Gateway check returned healthy, SHADOW, zero AUTO-allowlisted keys, `protectManualSelection: true`, and `requireSessionKeyForAuto: true`. Production was not changed and PR #40 remains unmerged.
+
+## First-turn direct-child grant candidate (TEST verified)
+
+To route a newly minted child's **first** turn without predicting its UUID or selecting a model in `sessions_spawn`, `autoSpawnParentGrants` now accepts an explicit parent **incarnation**: SHA-256 of the full parent session key, its session ID, its lifecycle revision, and the verified human creator profile ID. The list defaults to empty. At the child's `before_model_resolve`, the plugin reads its authoritative persisted entry and the parent entry with `readConsistency: "latest"`. It admits only a same-agent, depth-one native `spawn` child whose Gateway-stamped parent key, session ID, and revision match the configured parent and the current parent entry. The parent must be a profile-created human session of that exact incarnation. The child's automatic starting model is not a manual lock. Unknown, malformed, stale, cross-agent, nested, archived, or manually selected state fails closed; the existing `protectManualSelection` and `requireSessionKeyForAuto` safeguards must both remain enabled for this grant path. No child-key wildcard, ancestry-only authorization, model override at spawn, or mutable owner change is used. Audit records distinguish `autoAuthorization: "spawn-parent"` from `"exact-session"`.
+
+This is a **new authorization scope**, not part of the original two-phase live PASS; it was separately verified by the first-turn TEST below. It is bounded to one parent generation, but each direct child of that generation can be task-routed on its first turn. The installed TEST parent and child records were checked read-only and expose the required internal provenance; the public `sessions.describe` projection omits some generation fields, so an operator must use a supported authoritative session-entry read to construct a grant. An ownership reassignment is not exposed in that plugin read; Gateway ownership/access checks remain unchanged, and the grant is pinned to the immutable human creator rather than claimed to track mutable ownership. Any further TEST or production enablement still needs its own authorization; this TEST result is not production approval. Provider-request-level verification remains deferred.
+
+The owner chose to keep this parent-incarnation/creator scope, without extra mutable-owner tracking. A reassignment does not delete a child or change its recorded parent; Gateway ownership and access checks remain separate from model routing.
+
+### First-turn TEST gate and inconclusive attempt
+
+The existing acceptance runner has `dry-run-child-first-turn` and `run-child-first-turn`. It uses an exact human-created TEST parent and fixed prompt, with **one** `chat.send` and no follow-up or inference retry. The parent key is exactly allowlisted; the runner reads the parent through installed OpenClaw's read-only `getSessionEntry` with the TEST state root, pins its key hash/session ID/lifecycle revision/profile creator, and temporarily enables just that one parent grant. The preflight now also reads that parent's transcript and blocks when the **exact test prompt has already been sent**. It requires the effective `sessions_spawn` tool preview and an idle, clear parent. The new build must publish `autoSpawnParentGrantCount: 0` before the dry-run can say READY.
+
+PASS requires one genuine same-agent OpenClaw child, authoritative spawn lineage matching the grant, distinct parent/child run IDs, a parent REASONING→Sol decision authorised by its exact key, and a child SIMPLE/MEDIUM→Luna **first-turn** decision with `autoAuthorization: "spawn-parent"`, `applied: true`, and OpenClaw-reported Luna runtime resolution. The child's persisted automatic *starting* model should remain inherited Sol; that field is not evidence of its turn's resolved model. Count all observed parent/child router run IDs; require 2–3 against the guarded four-turn ceiling. Provider-request-level verification remains deferred. The runner restores and verifies the original **effective** SHADOW plugin configuration and agent default even on failure, and writes a separate private `.child-first-turn.json` report so historical evidence is not overwritten. An effective-config PASS does not prove byte-identical `openclaw.json` restoration: compare the captured file and restore its original bytes during operator cleanup. The existing recovery command handles interrupted effective grant restoration.
+
+**Approved attempt on 2026-10-18:** TEST loaded `c92b1cb`; the read-only preflight returned READY and one parent send was admitted. The parent's router decision was REASONING→Sol, applied by its exact key, and OpenClaw resolved Sol. The parent issued **no tool call**: its transcript treated the repeated proof/child request as already completed in the same session. There was no new OpenClaw child and no child first-turn decision. The deterministic runner stopped INCONCLUSIVE without retry or follow-up. One OpenClaw inference turn was observed against the four-turn ceiling. Its effective-config restoration reported PASS; the operator then restored the exact original config bytes and original build/manifest/package, restarted TEST, and verified the original hashes and healthy SHADOW state. Private `.child-first-turn.json` and `.child-first-turn.observations.json` reports are retained. **That attempt did not prove first-turn acceptance.** The new transcript-history preflight prevents this specific repeated-parent failure on a later separately approved attempt. A separate private settings file, `operator-acceptance-settings-child-first-turn.json`, now names another existing unused human-created TEST parent; the old-build parent/tool-only dry-run returned READY at zero turns. The later successful attempt below used that unused parent and a fresh READY preflight; any further attempt must select an unused human-created parent again.
+
+Before any new live attempt, capture the current TEST build/config hashes, load this PR's candidate into **TEST only**, verify its build hash and SHADOW safeguards, and require the read-only command below to return READY. A separate approval must cover the temporary TEST build/config change and a new **maximum four-turn** OpenClaw inference window. The previous completed test's approval cannot be reused. Restore the captured TEST build/config afterward and verify Gateway health; never merge or touch production as a side effect.
+
+After a Gateway restart, wait for the current process's final `[gateway] ready` event, not merely an active service or bound TCP socket. In the observed TEST startup, TCP bind preceded readiness by about 31 seconds; a premature client handshake timed out even though the existing operator device remained paired. Verify the exact existing device before considering any pairing change. The authoritative-session subprocess now frames its JSON with a unique marker and flushes it before exiting, so SDK stdout diagnostics outside that frame cannot corrupt the read; missing or ambiguous framing still blocks the gate.
+
+```bash
+node scripts/acceptance/cli.mjs dry-run-child-first-turn /home/stduser/.openclaw-router-test/operator-acceptance-settings-child-first-turn.json
+# Only after separate approval and READY:
+ROUTER_ACCEPTANCE_LIVE=YES ROUTER_ACCEPTANCE_APPROVED_TURNS=4 node scripts/acceptance/cli.mjs run-child-first-turn /home/stduser/.openclaw-router-test/operator-acceptance-settings-child-first-turn.json
+```
+
+## Approved first-turn TEST evidence (2026-10-18)
+
+With separate owner approval, TEST loaded the candidate plugin from PR commit `b391e44` (plugin build unchanged from `c92b1cb`). The current Gateway process reached its final ready event before connecting, then the fixed first-turn dry-run returned READY with zero turns and zero Gateway mutations. Exactly one live parent send was issued, without inference retry or child follow-up.
+
+| Turn | Router classification | Authorization | OpenClaw resolved model |
+| --- | --- | --- | --- |
+| Parent initial | REASONING | exact-session | `openai/gpt-6-sol` |
+| Child bootstrap, first turn | MEDIUM | spawn-parent | `openai/gpt-6-luna` |
+| Parent completion continuation | MEDIUM | exact-session | `openai/gpt-6-luna` |
+
+Parent run `a66a72ae-dccb-4228-8795-459a3c89e129` and child run `e7180bc9-27b4-4f40-9391-06571c3ead77` had distinct session identities and independently correlated decisions. The actual sanitized parent-history receipt contained exactly one `toolCall` to OpenClaw `sessions_spawn`, with `runtime="subagent"`, `context="isolated"`, no `agentId`, and no model override. A genuine same-agent child had authoritative lineage matching the temporary parent-incarnation grant and a matching independent `lastRunId`. Its first-turn Luna decision was applied with `autoAuthorization: "spawn-parent"`; its automatic persisted starting model remained Sol. No native Codex child was counted. Both parent and child were idle after completion.
+
+The deterministic runner reported first-turn PASS and effective restoration PASS. Its initial report captured **2 turns before the later completion continuation settled**. A subsequent current-process telemetry audit verified that continuation's completed Luna runtime resolution, making the actual total **3 distinct OpenClaw turns out of the approved 4**. The original report is preserved unchanged alongside the private post-run observations. Do not treat the initial report counter as final until parent/child completion continuations have settled and all correlated run IDs have been audited.
+
+The operator restored the exact captured TEST build, manifest, package and original config bytes, including SHADOW, empty allowlist/grants and both safeguards. After the restored process's final ready event, the read-only parent/tool gate returned READY. Existing pairing/authentication were preserved. Private report, sanitized receipt/idle evidence and post-run observations are retained in the mode-0700 TEST baseline capture directory; report files are mode 0600. Production was untouched; PR #40 remains draft/unmerged. **Automatic first-turn routing passed at the OpenClaw agent-turn level; provider-request-level verification remains deferred.**
+
+## Operator commands (historical; a new attempt requires separate approval)
+
+Private settings: `/home/stduser/.openclaw-router-test/operator-acceptance-settings-child.json`. Both phases require the TEST Gateway to load the candidate build containing the automatic-selection fix. Confirm that deployment and a fresh read-only dry-run before spending any turn.
+
+Before another separately approved live attempt, ensure that private settings file's exact `parentPrompt` matches this revision's `ISSUE8_PARENT_PROMPT`; the runner rejects the old generic prompt. Do not interpret a `tools.effective` preview as an exact active-run tool receipt. If the intended OpenClaw child is absent, stop without retrying inference; any native Codex child still consumes inference even though it cannot satisfy this Gateway-child gate.
+
+```bash
+node scripts/acceptance/cli.mjs dry-run-child-parent /home/stduser/.openclaw-router-test/operator-acceptance-settings-child.json
+ROUTER_ACCEPTANCE_LIVE=YES ROUTER_ACCEPTANCE_APPROVED_TURNS=4 node scripts/acceptance/cli.mjs run-child-parent /home/stduser/.openclaw-router-test/operator-acceptance-settings-child.json
+node scripts/acceptance/cli.mjs dry-run-child-followup /home/stduser/.openclaw-router-test/operator-acceptance-settings-child.json
+ROUTER_ACCEPTANCE_LIVE=YES ROUTER_ACCEPTANCE_APPROVED_TURNS=4 node scripts/acceptance/cli.mjs run-child-followup /home/stduser/.openclaw-router-test/operator-acceptance-settings-child.json
+```
+
+Only run the second live command if the first report and restoration are `PASS` and the follow-up dry-run is `READY`. If a recovery file remains, use the existing `restore` action and inspect the report before any further send. The live commands are documented, **not authorised by this file**.

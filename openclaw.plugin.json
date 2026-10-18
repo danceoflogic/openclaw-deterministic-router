@@ -42,10 +42,26 @@
       },
       "autoSessionKeyHashes": {
         "type": "array",
-        "description": "SHA-256 hex digests of exact session keys permitted to receive AUTO overrides. Empty means AUTO never applies.",
+        "description": "SHA-256 hex digests of exact session keys permitted to receive AUTO overrides. With no parent grants, an empty list makes AUTO inert.",
         "items": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
+        },
+        "default": []
+      },
+      "autoSpawnParentGrants": {
+        "type": "array",
+        "description": "Explicit parent-incarnation grants for first-turn AUTO routing of verified same-agent direct subagents. Empty disables this path.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["parentSessionKeyHash", "parentSessionId", "parentLifecycleRevision", "parentCreatorProfileId"],
+          "properties": {
+            "parentSessionKeyHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "parentSessionId": { "type": "string", "minLength": 1 },
+            "parentLifecycleRevision": { "type": "string", "minLength": 1 },
+            "parentCreatorProfileId": { "type": "string", "minLength": 1 }
+          }
         },
         "default": []
       },

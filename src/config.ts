@@ -1,4 +1,4 @@
-import type { ModelTarget, RouterPluginConfig, RouterTier } from "./types.js";
+import type { AutoSpawnParentGrant, ModelTarget, RouterPluginConfig, RouterTier } from "./types.js";
 
 const DEFAULT_MODELS: Record<RouterTier, ModelTarget> = {
   SIMPLE: { provider: "openai", model: "gpt-6-luna" },
@@ -12,8 +12,9 @@ export const DEFAULT_PLUGIN_CONFIG: RouterPluginConfig = {
   ambiguousTier: "COMPLEX",
   protectManualSelection: true,
   requireSessionKeyForAuto: true,
-  // AUTO is inert until exact session-key hashes are explicitly allowlisted.
+  // AUTO is inert until an exact session or parent-incarnation grant exists.
   autoSessionKeyHashes: [],
+  autoSpawnParentGrants: [],
   minAttachmentTier: "MEDIUM",
   models: DEFAULT_MODELS,
 };
@@ -33,6 +34,20 @@ function parseModelTarget(value: unknown, fallback: ModelTarget): ModelTarget {
   const provider = typeof value.provider === "string" && value.provider ? value.provider : fallback.provider;
   const model = typeof value.model === "string" && value.model ? value.model : fallback.model;
   return { provider, model };
+}
+
+function parseAutoSpawnParentGrant(value: unknown): AutoSpawnParentGrant | undefined {
+  if (!isObject(value)) return;
+  const { parentSessionKeyHash, parentSessionId, parentLifecycleRevision, parentCreatorProfileId } = value;
+  if (typeof parentSessionKeyHash !== "string" || !/^[a-f0-9]{64}$/.test(parentSessionKeyHash)) return;
+  if ([parentSessionId, parentLifecycleRevision, parentCreatorProfileId]
+    .some(field => typeof field !== "string" || !field.trim() || field !== field.trim())) return;
+  return {
+    parentSessionKeyHash,
+    parentSessionId: parentSessionId as string,
+    parentLifecycleRevision: parentLifecycleRevision as string,
+    parentCreatorProfileId: parentCreatorProfileId as string,
+  };
 }
 
 export function parsePluginConfig(raw: unknown): RouterPluginConfig {
@@ -61,6 +76,12 @@ export function parsePluginConfig(raw: unknown): RouterPluginConfig {
     )
     ? raw.autoSessionKeyHashes
     : DEFAULT_PLUGIN_CONFIG.autoSessionKeyHashes;
+  const parsedSpawnGrants = Array.isArray(raw.autoSpawnParentGrants)
+    ? raw.autoSpawnParentGrants.map(parseAutoSpawnParentGrant)
+    : [];
+  const autoSpawnParentGrants = parsedSpawnGrants.every(Boolean)
+    ? [...new Map(parsedSpawnGrants.map(grant => [JSON.stringify(grant), grant])).values()] as AutoSpawnParentGrant[]
+    : DEFAULT_PLUGIN_CONFIG.autoSpawnParentGrants;
 
   return {
     mode,
@@ -75,6 +96,7 @@ export function parsePluginConfig(raw: unknown): RouterPluginConfig {
         ? raw.requireSessionKeyForAuto
         : DEFAULT_PLUGIN_CONFIG.requireSessionKeyForAuto,
     autoSessionKeyHashes: [...new Set(autoSessionKeyHashes)],
+    autoSpawnParentGrants,
     models,
   };
 }

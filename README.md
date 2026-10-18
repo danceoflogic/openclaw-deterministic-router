@@ -7,7 +7,7 @@ A local, deterministic and auditable model-routing plugin for OpenClaw.
 
 The project is designed for one job: **route each eligible OpenClaw turn to an explicitly configured model without spending an LLM call to decide which model should answer.**
 
-> **Project status (17 October 2026):** experimental / shadow-first. On isolated **OpenClaw 2026.10.4 TEST**, bounded ordinary-turn manual-precedence, genuine AUTO switch, clear-to-default, `shadow`, and `off` functional checks passed. Issue #7 remains open for live lifecycle and unknown-state fail-closed checks; provider accounting and independent subagent routing are pending. The runner is in [PR #38](https://github.com/danceoflogic/openclaw-deterministic-router/pull/38), not merged into `main`; no production AUTO rollout is implied. See [current progress](PROGRESS.md).
+> **Project status (18 October 2026):** experimental / shadow-first. On isolated **OpenClaw 2026.10.4 TEST**, bounded ordinary-turn checks passed and Issue #8's existing-child per-agent-turn routing passed. A new first-turn direct-child grant is implemented offline in draft PR #40 but has **not** had live acceptance; provider-request accounting remains deferred. Issue #7's lifecycle and unknown-state checks remain tracked separately. No production AUTO rollout is implied. See [current progress](PROGRESS.md).
 
 ## Why this exists
 
@@ -129,7 +129,8 @@ The native OpenClaw manifest includes a strict JSON schema. Key options:
 | `ambiguousTier` | `COMPLEX` | deterministic fallback when Router Core returns no confident tier |
 | `protectManualSelection` | `true` | yield for an authoritative persisted session override; fail closed when that state is unknown |
 | `requireSessionKeyForAuto` | `true` | skip auto override when the session cannot be identified |
-| `autoSessionKeyHashes` | `[]` | SHA-256 hex digests of exact session keys permitted to receive AUTO overrides; empty means no session can be overridden |
+| `autoSessionKeyHashes` | `[]` | SHA-256 hex digests of exact session keys permitted to receive AUTO overrides |
+| `autoSpawnParentGrants` | `[]` | Opt-in, exact parent key hash + session ID + lifecycle revision + human creator profile ID; only verified same-agent direct children of that incarnation can receive first-turn AUTO routing |
 | `minAttachmentTier` | `MEDIUM` | deterministic floor for turns with attachments |
 | `models` | see table above | tier-to-provider/model policy |
 
@@ -142,7 +143,8 @@ registration's captured effective mode, safeguards and allowlist count. If
 the registration has no configuration object, it reports `status: "unknown"`
 and null effective fields rather than asserting a mode. Use it alongside
 OpenClaw's authored/applied revision fields; the method does not expose session
-keys or their hashes and does not change configuration.
+keys or their hashes and does not change configuration. Both authorization
+lists default to empty, so AUTO remains inert until explicitly scoped.
 
 ## Telemetry
 
@@ -182,7 +184,7 @@ A basic functional beta means the following have been demonstrated on the curren
 |---|---|---|
 | Deterministic local policy and shadow integration | #2–#5 completed; real document attachment floor passed on Worktop and its fix merged in PR #22 | #6 is closed; #10 now records the completed shadow gate |
 | Bounded ordinary-turn AUTO (#7) | TEST functional A/B, clear-to-default, `shadow`, and `off` passed; #7 remains open | Live lifecycle/reset/deletion/recreation and unknown-state fail-closed checks; owner-side provider accounting is separate |
-| Independent child routing (#8) | Not yet accepted | Observe separate parent/child decisions and effective models; document the actual runtime granularity |
+| Independent child routing (#8) | Existing-child per-agent-turn routing passed on isolated TEST; see [evidence](docs/issue8-child-routing.md) | Newly added first-turn parent-incarnation grant needs separate live TEST acceptance; provider-request accounting remains deferred |
 
 After the bounded AUTO tests, restore `shadow`. Release readiness adds measured overhead/restart behaviour (#9), a defensible compatibility and dependency policy (#12), and the remaining [acceptance tracker](https://github.com/danceoflogic/openclaw-deterministic-router/issues/10) checks. See [current progress](PROGRESS.md) and [blockers](BLOCKERS.md) for the evidence boundaries.
 

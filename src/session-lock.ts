@@ -113,6 +113,12 @@ function resolvePersistedSelection(sessionEntry: unknown): PersistedSelectionRes
 
   if (!hasProvider || !hasModel) return { state: "unknown" };
 
+  // A spawned child can persist the parent's selected model as an automatic
+  // starting point. That is not a human model lock; the child's own resolve
+  // hook must still be free to route its workload. Keep malformed automatic
+  // selections unknown, as above.
+  if (source === "auto") return { state: "clear" };
+
   return {
     state: "locked",
     provider: rawProvider,
