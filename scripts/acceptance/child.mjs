@@ -78,8 +78,9 @@ export async function runChildPhase(rpc, options, phase, prior) {
         assert(baseline.autoSessionKeyHashes.length === 0, 'Existing TEST AUTO allowlist is outside this experiment');
         assert(s.autoSpawnParentGrantCount === 0, 'First-turn candidate build not loaded or grant baseline unknown');
         assert(typeof rpc.readAuthoritativeSession === 'function', 'Authoritative TEST session reader unavailable');
-        const authoritativeParent = await rpc.readAuthoritativeSession(o.parentSession);
+        const authoritativeParent = await rpc.readAuthoritativeSession(o.parentSession, o.parentPrompt);
         assert(authoritativeParent?.sessionId === parent.sessionId && typeof authoritativeParent.lifecycleRevision === 'string' && authoritativeParent.lifecycleRevision.length > 0 && authoritativeParent.createdVia === 'operator' && authoritativeParent.createdActor?.type === 'human' && authoritativeParent.createdActor.source === 'profile' && authoritativeParent.createdActor.id === o.ownerProfileId && authoritativeParent.spawnDepth === 0 && authoritativeParent.archivedAt === undefined, 'Exact parent incarnation/creator unavailable');
+        assert(authoritativeParent.priorExactPromptCount === 0, 'Parent has already received the exact test prompt; select an unused human-created parent');
         grant = { parentSessionKeyHash: digest(o.parentSession), parentSessionId: parent.sessionId, parentLifecycleRevision: authoritativeParent.lifecycleRevision, parentCreatorProfileId: o.ownerProfileId };
       }
       const tools = await call('tools.effective', { sessionKey: o.parentSession });

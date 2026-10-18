@@ -25,7 +25,7 @@ test('Issue #8 child inventory rejects a native Codex child and false spawn prov
   assert.equal(isOpenClawSpawnedChild({ ...row, createdVia: 'codex-native' }, 'main', parentKey, 99), false);
 });
 
-function fixture({ manualChild = false, spawnTool = true, childRunId = 'child-bootstrap-run', firstTurn = false, grantFeature = true, badLineage = false } = {}) {
+function fixture({ manualChild = false, spawnTool = true, childRunId = 'child-bootstrap-run', firstTurn = false, grantFeature = true, badLineage = false, priorPromptCount = 0 } = {}) {
   const config = { agents: { entries: { main: { model: 'openai/gpt-6-luna' } } }, plugins: { entries: { 'deterministic-router': { config: structuredClone(baseline) } } } };
   let sent = 0, patches = 0;
   const parent = { sessionId: 'parent-generation', spawnDepth: 0, agentId: 'main', createdVia: 'operator', createdActor: { type: 'human', identity: { type: 'profile', id: 'gateway-owner' } }, hasActiveRun: false, modelOverrideSource: 'default' };
@@ -49,7 +49,7 @@ function fixture({ manualChild = false, spawnTool = true, childRunId = 'child-bo
       throw new Error(`Unexpected RPC ${method}`);
     },
     async waitForRun() { return { state: 'final' }; },
-    async readAuthoritativeSession(key) { return key === parentKey ? { sessionId: parent.sessionId, lifecycleRevision: 'parent-revision', createdVia: 'operator', createdActor: { type: 'human', source: 'profile', id: 'gateway-owner' }, spawnDepth: 0 } : key === childKey ? { sessionId: child.sessionId, lifecycleRevision: 'child-revision', createdVia: 'spawn', createdActor: { type: 'agent', id: 'main' }, spawnDepth: 1, parentSessionKey: parentKey, spawnedBy: parentKey, spawnedBySessionId: parent.sessionId, parentSessionLifecycleRevision: badLineage ? 'wrong-revision' : 'parent-revision', modelOverrideSource: 'auto' } : null; },
+    async readAuthoritativeSession(key) { return key === parentKey ? { sessionId: parent.sessionId, lifecycleRevision: 'parent-revision', createdVia: 'operator', createdActor: { type: 'human', source: 'profile', id: 'gateway-owner' }, spawnDepth: 0, priorExactPromptCount: priorPromptCount } : key === childKey ? { sessionId: child.sessionId, lifecycleRevision: 'child-revision', createdVia: 'spawn', createdActor: { type: 'agent', id: 'main' }, spawnDepth: 1, parentSessionKey: parentKey, spawnedBy: parentKey, spawnedBySessionId: parent.sessionId, parentSessionLifecycleRevision: badLineage ? 'wrong-revision' : 'parent-revision', modelOverrideSource: 'auto' } : null; },
     async readAllEvidence() { return sent === 1 ? [...record(parentKey, 'parent-run', 'gpt-6-sol', true, undefined, 'exact-session'), ...record(childKey, 'child-bootstrap-run', 'gpt-6-luna', firstTurn, firstTurn ? undefined : 'session is not allowlisted for AUTO; fail-closed without override', firstTurn ? 'spawn-parent' : undefined)] : record(childKey, 'child-followup-run', 'gpt-6-luna', true); },
     counts: () => ({ sent, patches }),
   };
@@ -75,6 +75,11 @@ test('Issue #8 first-turn preflight checks candidate and parent incarnation with
   const absent = await runChildPhase(fixture({ firstTurn: true, grantFeature: false }), { ...settings, dryRun: true }, 'first-turn');
   assert.equal(absent.result, 'BLOCKED');
   assert.match(absent.error, /candidate build not loaded/);
+  const repeated = fixture({ firstTurn: true, priorPromptCount: 1 });
+  const blocked = await runChildPhase(repeated, { ...settings, dryRun: true }, 'first-turn');
+  assert.equal(blocked.result, 'BLOCKED');
+  assert.match(blocked.error, /already received the exact test prompt/);
+  assert.deepEqual(repeated.counts(), { sent: 0, patches: 0 });
 });
 
 test('Issue #8 first-turn child uses its own Luna run and restores absent grant field', async () => {

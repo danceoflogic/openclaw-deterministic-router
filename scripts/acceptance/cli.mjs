@@ -99,13 +99,13 @@ try {
       const output = execFileSync('journalctl', ['--user', '-u', 'openclaw-gateway-router-test.service', '--no-pager', '-o', 'cat', '--since', since], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
       return parseJournal(output);
     },
-    readAuthoritativeSession: key => {
+    readAuthoritativeSession: (key, exactPrompt) => {
       if (!firstTurnAction || settings.gatewayUrl !== 'ws://127.0.0.1:19879' || settings.profile !== 'router-test' || settings.agentId !== 'main') throw new Error('Authoritative read restricted to Issue #8 TEST');
       const executable = execFileSync('which', ['openclaw'], { encoding: 'utf8' }).trim();
       const packageRoot = dirname(realpathSync(executable));
       const moduleUrl = pathToFileURL(join(packageRoot, 'dist/plugin-sdk/session-store-runtime.js')).href;
-      const script = 'const {getSessionEntry}=await import(process.argv[1]); const entry=getSessionEntry({agentId:"main",sessionKey:process.argv[2],readConsistency:"latest"}); process.stdout.write(JSON.stringify(entry??null)); process.exit(0);';
-      const output = execFileSync(process.execPath, ['--input-type=module', '-e', script, moduleUrl, key], { encoding: 'utf8', timeout: 20000, maxBuffer: 1024 * 1024, env: { ...process.env, OPENCLAW_STATE_DIR: '/home/stduser/.openclaw-router-test' } });
+      const script = 'const {getSessionEntry,loadTranscriptEventsSync}=await import(process.argv[1]); const entry=getSessionEntry({agentId:"main",sessionKey:process.argv[2],readConsistency:"latest"}); const priorExactPromptCount=entry&&process.argv[3]?loadTranscriptEventsSync({agentId:"main",sessionId:entry.sessionId,sessionKey:process.argv[2]}).filter(v=>v.message?.role==="user"&&v.message?.content===process.argv[3]).length:undefined; const result=entry?Object.assign({},entry,priorExactPromptCount===undefined?{}:{priorExactPromptCount}):null; process.stdout.write(JSON.stringify(result)); process.exit(0);';
+      const output = execFileSync(process.execPath, ['--input-type=module', '-e', script, moduleUrl, key, exactPrompt ?? ''], { encoding: 'utf8', timeout: 20000, maxBuffer: 1024 * 1024, env: { ...process.env, OPENCLAW_STATE_DIR: '/home/stduser/.openclaw-router-test' } });
       return JSON.parse(output);
     },
   };
