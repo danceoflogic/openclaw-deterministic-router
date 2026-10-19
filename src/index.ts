@@ -119,6 +119,14 @@ export default definePluginEntry({
             const state = reconcileCurrentSession(api, locks, start.sessionKey, start.agentId).state;
             return state === "locked" ? "manual" : state;
           },
+          readManualEffortState: () => {
+            if (registry[CODEX_STAGE_ROUTER] !== factory) return "unknown";
+            const current = reconcileCurrentSession(api, locks, start.sessionKey, start.agentId);
+            if (current.state !== "clear") return current.state === "locked" ? "manual" : "unknown";
+            const entry = current.entry as Record<string, unknown> | undefined;
+            // Session thinking selections are explicit overrides; agent defaults are not.
+            return entry?.thinkingLevel != null || entry?.reasoningEffort != null ? "manual" : "clear";
+          },
           audit: (record) => api.logger?.info?.(`[deterministic-router] ${JSON.stringify({ ...record, runId: start.runId })}`),
         });
       };

@@ -15,7 +15,7 @@ record({ event: 'runtime.observer.loaded', module: import.meta.url,
 export function describeWireRequest(body, metadata, transport, path) {
   const marker = process.env.OPENCLAW_STAGE_TEST_MARKER;
   const toolResults = Array.isArray(body?.input) ? body.input.filter(item => /call_output$/.test(item.type ?? '')) : [];
-  return { wireId: randomUUID(), requestedModel: body?.model, transport, path,
+  return { wireId: randomUUID(), requestedModel: body?.model, requestedEffort: body?.reasoning?.effort, transport, path,
     threadId: metadata?.threadId, turnId: metadata?.turnId, requestKind: metadata?.requestKind,
     subagent: metadata?.subagent, subagentKind: metadata?.subagentKind, threadSource: metadata?.threadSource,
     parentThreadId: metadata?.parentThreadId, rootTurnId: metadata?.rootTurnId,
@@ -35,7 +35,7 @@ export function nativeSettingsObserver() {
       try {
         const value = JSON.parse(line).fields;
         if (value?.message === 'stage routing settings outcome') record({ event: 'native.settings.result',
-          turnId: value.turn_id, from: value.from, to: value.to, outcome: value.outcome, elapsedMs: value.elapsed_ms });
+          turnId: value.turn_id, from: value.from, to: value.to, fromEffort: value.from_effort, toEffort: value.to_effort, outcome: value.outcome, elapsedMs: value.elapsed_ms });
       } catch { /* Other native logs are neither captured nor copied. */ }
     }
     if (pending.length > 1024 * 1024) pending = '';
@@ -73,7 +73,10 @@ export function observeWireResponse(bytes, wire) {
       const response = event.response ?? {};
       record({ event: 'provider.response', ...wire, responseType: event.type,
         responseId: response.id, reportedModel: response.model,
-        status: response.status, usage: response.usage,
+        status: response.status, usage: response.usage ? {
+          input_tokens: response.usage.input_tokens, input_tokens_details: response.usage.input_tokens_details,
+          output_tokens: response.usage.output_tokens, output_tokens_details: response.usage.output_tokens_details,
+          total_tokens: response.usage.total_tokens } : undefined,
         error: response.error ? { type: response.error.type, code: response.error.code } : undefined });
     }
   } catch { /* Non-JSON stream frames carry no structured execution receipt. */ }

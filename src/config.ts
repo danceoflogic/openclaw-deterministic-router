@@ -17,6 +17,7 @@ export const DEFAULT_PLUGIN_CONFIG: RouterPluginConfig = {
   autoSpawnParentGrants: [],
   minAttachmentTier: "MEDIUM",
   models: DEFAULT_MODELS,
+  stageRouting: { model: true, effort: false },
 };
 
 const TIERS: RouterTier[] = ["SIMPLE", "MEDIUM", "COMPLEX", "REASONING"];
@@ -98,5 +99,9 @@ export function parsePluginConfig(raw: unknown): RouterPluginConfig {
     autoSessionKeyHashes: [...new Set(autoSessionKeyHashes)],
     autoSpawnParentGrants,
     models,
+    stageRouting: {
+      model: isObject(raw.stageRouting) && typeof raw.stageRouting.model === "boolean" ? raw.stageRouting.model : true,
+      effort: isObject(raw.stageRouting) && raw.stageRouting.effort === true,
+    },
   };
 }

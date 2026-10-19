@@ -206,7 +206,9 @@ stream_max_retries = 0
 }, 30_000);
 
 const stageBinary = process.env.ISSUE42_STAGE_BIN;
-it.skipIf(!stageBinary || !catalogPath).each([false, true])("awaited complete-batch routing; reject incompatible metadata=%s", async (rejectIncompatible) => {
+it.skipIf(!stageBinary || !catalogPath).each(["model", "incompatible", "effort"])("awaited complete-batch routing: %s", async (mode) => {
+  const rejectIncompatible = mode === "incompatible";
+  const effortOnly = mode === "effort";
   const home = await mkdtemp(join(tmpdir(), "issue42-stage-"));
   const bodies: Message[] = [];
   const stages: Message[] = [];
@@ -257,7 +259,7 @@ model_provider = "offline"
 model_catalog_json = ${JSON.stringify(join(home, "models.json"))}
 approval_policy = "never"
 sandbox_mode = "read-only"
-model_reasoning_effort = "low"
+model_reasoning_effort = "${effortOnly ? "high" : "low"}"
 [features]
 step_model_switching = true
 shell_tool = false
@@ -278,8 +280,8 @@ stream_max_retries = 0
     deadline = setTimeout(() => child?.kill("SIGKILL"), 25_000);
     child.stderr.on("data", (data) => { stderr = (stderr + data.toString()).slice(-20000); });
     const rpc = new Rpc(child);
-    const route = createStageRoutingSession({ config: DEFAULT_PLUGIN_CONFIG, originalTier: "REASONING",
-      originalModel: { provider: "openai", model: "gpt-6-sol" }, readManualState: () => "clear" });
+    const route = createStageRoutingSession({ config: { ...DEFAULT_PLUGIN_CONFIG, stageRouting: { model: !effortOnly, effort: effortOnly } }, originalTier: "REASONING",
+      originalModel: { provider: "openai", model: "gpt-6-sol" }, readManualState: () => "clear", readManualEffortState: () => "clear" });
     rpc.onRequest = async (request) => {
       if (request.method === "item/tool/call") {
         const text = `settled-receipt-${request.params.callId}`;
@@ -303,7 +305,8 @@ stream_max_retries = 0
     const done = await rpc.next("turn/completed");
     expect(done.params.turn).toMatchObject({ id: turn.id, status: "completed" });
     expect(failure).toBeUndefined();
-    expect(bodies.map((body) => body.model)).toEqual(["gpt-6-sol", rejectIncompatible ? "gpt-6-sol" : "gpt-6-luna", "gpt-6-sol"]);
+    expect(bodies.map((body) => body.model)).toEqual(["gpt-6-sol", rejectIncompatible || effortOnly ? "gpt-6-sol" : "gpt-6-luna", "gpt-6-sol"]);
+    if (effortOnly) expect(bodies.map(body => body.reasoning?.effort)).toEqual(["high", "low", "high"]);
     expect(stages).toHaveLength(2);
     expect(stages.map((stage) => [stage.threadId, stage.turnId, stage.nextObjective]))
       .toEqual(objectives.map((goal) => [thread.id, turn.id, goal]));

@@ -47,7 +47,8 @@ try {
   } else if (action === 'create') {
     const receipt = await client.request('sessions.create', { key: settings.sessionKey, agentId: 'main',
       label: settings.label, idempotencyKey: randomUUID() });
-    await client.request('sessions.patch', { key: settings.sessionKey, thinkingLevel: 'high' });
+    // Effort AUTO starts from the agent default; never disguise a manual session override as AUTO.
+    if (!settings.automaticEffort) await client.request('sessions.patch', { key: settings.sessionKey, thinkingLevel: 'high' });
     writeFileSync(settingsPath + '.created.json', JSON.stringify(receipt, null, 2), { mode: 0o600 });
     console.log('Created isolated TEST session; no inference sent.');
   } else if (action === 'send') {

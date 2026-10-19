@@ -92,6 +92,21 @@
             "$ref": "#/$defs/modelTarget"
           }
         }
+      },
+      "stageRouting": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Opt-in stage callback controls; independently route model and reasoning effort. Existing experimental environment enablement and AUTO safeguards still apply.",
+        "properties": {
+          "model": {
+            "type": "boolean",
+            "default": true
+          },
+          "effort": {
+            "type": "boolean",
+            "default": false
+          }
+        }
       }
     },
     "$defs": {

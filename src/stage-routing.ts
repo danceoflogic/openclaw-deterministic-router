@@ -100,10 +100,10 @@ export function proposeStageRoute(
 
   // No model/provider changes across an unverified compatibility boundary.
   if (candidate.provider !== input.currentModel.provider) {
-    return keep(input, "different provider; compatibility not verified");
+    return { ...keep(input, "different provider; compatibility not verified"), nextTier };
   }
   if (!input.eligibleModels.some((model) => sameModel(model, candidate))) {
-    return keep(input, "target is not explicitly capability eligible");
+    return { ...keep(input, "target is not explicitly capability eligible"), nextTier };
   }
 
   return {

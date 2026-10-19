@@ -39,7 +39,7 @@ it("binds the host bridge to an allowed run and rechecks persisted manual state"
   try {
     process.env.OPENCLAW_EXPERIMENTAL_STAGE_ROUTING = "1";
     plugin.register({ id: "deterministic-router",
-      pluginConfig: { mode: "auto", autoSessionKeyHashes: [createHash("sha256").update(key).digest("hex")] },
+      pluginConfig: { mode: "auto", stageRouting: { model: true, effort: true }, autoSessionKeyHashes: [createHash("sha256").update(key).digest("hex")] },
       on: (name: string, fn: (...args: any[]) => any) => hooks.set(name, fn),
       registerHook: () => {}, registerGatewayMethod: () => {},
       runtime: { agent: { session: { getSessionEntry: () => entry } } },
@@ -51,6 +51,9 @@ it("binds the host bridge to an allowed run and rechecks persisted manual state"
     hooks.get("before_model_resolve")!({ prompt: difficult }, { ...start });
     const route = registry[CODEX_STAGE_ROUTER](start);
     expect(route({ model: "gpt-6-sol", nextObjective: routine })).toEqual({ model: "gpt-6-luna" });
+    entry = { ...entry, thinkingLevel: "high" };
+    expect(route({ model: "gpt-6-luna", effort: "low", supportedEfforts: ["low", "high"], nextObjective: difficult }))
+      .toEqual({ model: "gpt-6-sol" });
     entry = { ...entry, providerOverride: "openai", modelOverride: "gpt-6-sol", modelOverrideSource: "user" };
     expect(route({ model: "gpt-6-sol", nextObjective: `${routine} Use ascending order.` })).toEqual({});
     expect(registry[CODEX_STAGE_ROUTER]({ ...start, sessionKey: "not-allowed" })).toBeUndefined();
@@ -60,3 +63,23 @@ it("binds the host bridge to an allowed run and rechecks persisted manual state"
     else process.env.OPENCLAW_EXPERIMENTAL_STAGE_ROUTING = previous;
   }
 }, 60_000);
+
+it("routes effort High -> Low -> High independently with a fixed model", () => {
+  const route = createStageRoutingSession({ config: { ...DEFAULT_PLUGIN_CONFIG, stageRouting: { model: false, effort: true } },
+    originalTier: "REASONING", originalModel: { provider: "openai", model: "gpt-6-sol" },
+    readManualState: () => "clear", readManualEffortState: () => "clear" });
+  const base = { model: "gpt-6-sol", supportedEfforts: ["low", "high"] as const };
+  expect(route({ ...base, supportedEfforts: [...base.supportedEfforts], effort: "high", nextObjective: routine })).toEqual({ effort: "low" });
+  expect(route({ ...base, supportedEfforts: [...base.supportedEfforts], effort: "low", nextObjective: routine })).toEqual({});
+  expect(route({ ...base, supportedEfforts: [...base.supportedEfforts], effort: "low", nextObjective: difficult })).toEqual({ effort: "high" });
+});
+
+it("keeps manual/unknown effort choices and rejects unsupported levels without disabling model policy", () => {
+  for (const effortState of ["manual", "unknown", "clear"] as const) {
+    const route = createStageRoutingSession({ config: { ...DEFAULT_PLUGIN_CONFIG, stageRouting: { model: true, effort: true } },
+      originalTier: "REASONING", originalModel: { provider: "openai", model: "gpt-6-sol" },
+      readManualState: () => "clear", readManualEffortState: () => effortState });
+    expect(route({ model: "gpt-6-sol", effort: "high", supportedEfforts: ["high"], nextObjective: routine }))
+      .toEqual({ model: "gpt-6-luna" });
+  }
+});

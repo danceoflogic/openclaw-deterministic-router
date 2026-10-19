@@ -6,7 +6,7 @@ Issue [#42](https://github.com/danceoflogic/openclaw-deterministic-router/issues
 
 The existing deterministic `proposeStageRoute` / `routeWork` policy is unchanged. `src/codex-stage-adapter.ts` supplies a per-turn adapter. It classifies only a changed, bounded next-stage objective, retains the originally selected model for difficult continuations, and rechecks persisted manual-selection state. Configured candidates are policy targets, not proof of native compatibility or entitlement.
 
-`experimental/codex-0.160.0-stage-routing.patch` applies to Codex tag `rust-v0.160.0`, commit `a956835d020762cb2b570053af06f643a11c0ecc`. It adds one awaited experimental server request, `turn/stageRouting`, after the entire preceding response/tool batch settles and before the next immutable step settings capture. The reply contains an optional model. Codex applies it through its existing `apply_turn_settings` implementation and awaits native validation/publication before continuing. Rejection, cancellation, missing ownership or a five-second unanswered handoff never publishes a delayed change. No timer decides which inference to change.
+`experimental/codex-0.160.0-stage-routing.patch` applies to Codex tag `rust-v0.160.0`, commit `a956835d020762cb2b570053af06f643a11c0ecc`. It adds one awaited experimental server request, `turn/stageRouting`, after the entire preceding response/tool batch settles and before the next immutable step settings capture. The reply contains an optional model and reasoning effort. Codex applies them through its existing `apply_turn_settings` implementation and awaits native validation/publication before continuing. Rejection, cancellation, missing ownership or a five-second unanswered handoff never publishes a delayed change. No timer decides which inference to change.
 
 The stage objective comes from a native accepted `update_plan` with exactly one bounded `in_progress` goal. Commentary alone is not a formal stage boundary. This is **plan-aware routing**, not general automatic interpretation of every progress message or individual tool result. Tasks without changed accepted goals retain their current model.
 
@@ -67,3 +67,25 @@ An `appServer.command` override is not admitted to OpenClaw's parent-local infer
 OpenClaw captures plugin artifacts. Use the documented explicit `plugins.load.paths` override to select the patched local TEST plugin, and verify its loaded fixture marker before sending a task. Editing an inactive installed copy or assuming an API-key route is the OAuth route is insufficient. `scripts/experimental/gateway-stage-test.mjs` is restricted to loopback port 19879, performs no automatic task resends, and supports a read-only config/catalog preflight.
 
 Keep the TEST baseline byte-for-byte restoration receipts outside the repository. Do not include private session configuration or credentials in commits. No Issue #7/#8 live acceptance reruns are part of this experiment.
+
+## Independent reasoning-effort routing
+
+`stageRouting: { model: false, effort: true }` preserves the current model and opts into deterministic effort selection: COMPLEX/REASONING goals select `high`, other confirmed goals select `low`. Model routing defaults on and effort routing defaults off. Both use the same single classification per changed accepted goal. Persisted manual thinking overrides, unknown session state, and unsupported native reasoning levels prevent effort changes. Agent-wide thinking defaults are not manual session overrides.
+
+The callback receives the live next-step effort and supported levels. Its sparse reply uses native `TurnSettingsUpdate.effort`; it does not start another turn, rewrite provider bodies, or bypass native settings validation.
+
+### Real effort experiment — 19 October 2026
+
+**Passed:** one native turn, fixed `gpt-6.1-sol`, actual outbound efforts **high → high → low → high → high**. Two native settings changes were `Applied` before the following requests. All five correlated provider responses completed and reported `gpt-6.1-sol`; original context reached every request and tool receipts survived. The sum-of-cubes induction/sorting task completed correctly. See the sanitized [effort result](../experimental/issue42-effort-live-result.json) for request/turn identities, usage and the private wire-evidence digest.
+
+| Request | Effort | Input | Cached input | Output | Reasoning |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 1 | high | 22,197 | 0 | 113 | 0 |
+| 2 | high | 22,334 | 0 | 409 | 56 |
+| 3 | low | 22,799 | 0 | 179 | 0 |
+| 4 | high | 23,067 | 22,144 | 185 | 0 |
+| 5 | high | 23,425 | 22,912 | 234 | 0 |
+
+Routing decisions took **2.43–2.80 ms**. The two native awaited handoff/settings measurements were **10.17 / 48.87 ms**, including the host round trip; isolated settings-application cost is not exposed by this fixture. Cache reuse was observed after returning to High, but not on the Low request. This run cannot attribute cache behaviour to effort changes or establish savings: each stage performs different work, and most High requests also reported zero reasoning tokens. No cost reduction is claimed.
+
+Verification: 18 focused config/policy/adapter tests; three compiled native integration tests (including existing model-switching and incompatibility regression cases); complete Gateway effort mock; real provider experiment; typecheck/build and clean patch application. The broader suite passed 96 tests after two unrelated 5-second authorization-import timeouts passed a targeted 60-second rerun. The previously completed installed-binary API test remained skipped. TEST restoration is checked byte-for-byte after both Gateway experiments; production/main remain unchanged.
