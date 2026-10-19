@@ -52,3 +52,9 @@ describe("AUTO session allowlist configuration", () => {
       .autoSpawnParentGrants).toEqual([]);
   });
 });
+
+it("keeps model and effort stage routing independently configurable and effort opt-in", () => {
+  expect(parsePluginConfig({}).stageRouting).toEqual({ model: true, effort: false });
+  expect(parsePluginConfig({ stageRouting: { model: false, effort: true } }).stageRouting).toEqual({ model: false, effort: true });
+  expect(parsePluginConfig({ stageRouting: { effort: "true" } }).stageRouting?.effort).toBe(false);
+});

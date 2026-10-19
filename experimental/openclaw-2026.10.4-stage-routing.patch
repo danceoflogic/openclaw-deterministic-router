@@ -1,0 +1,41 @@
+--- a/dist/.setup/run-attempt-BW9kt8Xq.mjs
++++ b/dist/.setup/run-attempt-BW9kt8Xq.mjs
+@@ -6319,6 +6319,7 @@
+ 	const { compactionPlanState, toolBridge, toolOutcomeOrdinals, suppressedDynamicToolOutcomeOrdinals, allocateCodexToolOutcomeOrdinal } = attemptTools;
+ 	const { state, turnIdRef, userInputBridgeRef, openClawDynamicToolExecutions, pendingOpenClawDynamicToolCompletionIds, noteProgress } = turnRuntime;
+ 	const { emitExecutionPhaseOnce, scheduleTurnReleaseAfterTerminalDynamicTool, scheduleTerminalDynamicToolReleaseCheck } = lifecycle;
++	let stageRouting;
+ 	let refreshDrain;
+ 	let refreshStopping = false;
+ 	const settlePluginRuntimeRefresh = async (turnId) => {
+@@ -6348,6 +6349,19 @@
+ 		};
+ 		try {
+ 			if (!turnId) return;
++			if (request.method === "turn/stageRouting") {
++				const boundary = request.params;
++				if (process.env.OPENCLAW_EXPERIMENTAL_STAGE_ROUTING !== "1"
++					|| boundary?.threadId !== resourceState.thread.threadId || boundary?.turnId !== turnId
++					|| typeof boundary.model !== "string") return {};
++				markCurrentTurnRequestProgress();
++				params.hostCapabilities.assertActive();
++				connection.assertLegacyCurrent();
++				const factory = globalThis[Symbol.for("openclaw.deterministic-router.stage.v1")];
++				stageRouting ??= factory?.({ runId: params.runId, sessionKey: params.sessionKey,
++					agentId: sessionAgentId, originalModel: { provider: params.provider, model: params.modelId } });
++				return stageRouting?.(boundary) ?? {};
++			}
+ 			if (request.method === "mcpServer/elicitation/request") {
+ 				if (!scope.turnId || scope.turnId === turnId) markCurrentTurnRequestProgress();
+ 				const approvalResult = await routeCodexAppServerElicitationRequest({
+--- a/dist/.setup/thread-requests-DMd-wcni.mjs
++++ b/dist/.setup/thread-requests-DMd-wcni.mjs
+@@ -1792,7 +1792,7 @@
+ 	suppress_unstable_features_warning: true
+ };
+ const CODEX_GOAL_CONTINUATION_DISABLED_THREAD_CONFIG = { "features.goals": false };
+-const CODEX_NATIVE_UPDATE_PLAN_DISABLED_THREAD_CONFIG = { "tools.update_plan.enabled": false };
++const CODEX_NATIVE_UPDATE_PLAN_DISABLED_THREAD_CONFIG = { "tools.update_plan.enabled": process.env.OPENCLAW_EXPERIMENTAL_STAGE_ROUTING === "1" };
+ const CODEX_CODE_MODE_DISABLED_THREAD_CONFIG = {
+ 	"features.code_mode": false,
+ 	"features.code_mode_only": false

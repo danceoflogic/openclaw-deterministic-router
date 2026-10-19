@@ -2,6 +2,8 @@
 
 **Status:** proposal, updated 18 October 2026. [Issue #42](https://github.com/danceoflogic/openclaw-deterministic-router/issues/42) is the canonical tracker. No plugin/runtime source, production/TEST configuration, authorisations or inference calls are changed or approved here.
 
+**Installed-version follow-up:** [The 0.160.0 investigation and installed-binary offline test](stage-routing-prototype.md#installed-runtime-investigation-18-october-2026) independently verify that `turn/settings/update` works within an active turn, but find no awaited post-tools/pre-capture routing callback. Real-model switching remains unverified; the current integration decision is NO-GO without that protocol/adapter extension.
+
 ## User-observed stages and the actual boundary
 
 The operator observes a sequence of tool calls, visible progress feedback, and then another sequence of tool calls during long Codex tasks. That suggests **mid-turn stage routing** may offer useful cost/quality improvements without making independent decisions on every hidden provider request.

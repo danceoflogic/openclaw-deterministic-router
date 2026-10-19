@@ -4,6 +4,8 @@ import { InboundAttachmentRegistry, mergeAttachmentSummaries } from "./attachmen
 import { parsePluginConfig } from "./config.js";
 import { onNativeModelCallDiagnostic } from "./native-diagnostics.js";
 import { routeWork } from "./route-work.js";
+import { CODEX_STAGE_ROUTER, createStageRoutingSession, type StageRouterStart } from "./codex-stage-adapter.js";
+import type { RouterTier } from "./types.js";
 import { isAuthorizedDirectSpawn } from "./spawn-grant.js";
 import {
   applySessionPatch,
@@ -99,6 +101,41 @@ export default definePluginEntry({
       && api.pluginConfig !== null
       && !Array.isArray(api.pluginConfig);
     const registeredConfig = parsePluginConfig(api.pluginConfig);
+    const stageEnabled = process.env.OPENCLAW_EXPERIMENTAL_STAGE_ROUTING === "1";
+    const stageTiers = new Map<string, RouterTier>();
+    if (stageEnabled && api.lifecycle?.onDispose) {
+      const registry = globalThis as unknown as Record<symbol, unknown>;
+      const factory = (start: StageRouterStart) => {
+        const originalTier = stageTiers.get(start.runId);
+        const hash = createHash("sha256").update(start.sessionKey).digest("hex");
+        if (!originalTier || registeredConfig.mode !== "auto"
+          || !registeredConfig.protectManualSelection || !registeredConfig.requireSessionKeyForAuto
+          || !registeredConfig.autoSessionKeyHashes.includes(hash)) return;
+        return createStageRoutingSession({ config: registeredConfig, originalTier,
+          originalModel: start.originalModel,
+          readManualState: () => {
+            // A disposed plugin generation cannot continue authorising changes.
+            if (registry[CODEX_STAGE_ROUTER] !== factory) return "unknown";
+            const state = reconcileCurrentSession(api, locks, start.sessionKey, start.agentId).state;
+            return state === "locked" ? "manual" : state;
+          },
+          readManualEffortState: () => {
+            if (registry[CODEX_STAGE_ROUTER] !== factory) return "unknown";
+            const current = reconcileCurrentSession(api, locks, start.sessionKey, start.agentId);
+            if (current.state !== "clear") return current.state === "locked" ? "manual" : "unknown";
+            const entry = current.entry as Record<string, unknown> | undefined;
+            // Session thinking selections are explicit overrides; agent defaults are not.
+            return entry?.thinkingLevel != null || entry?.reasoningEffort != null ? "manual" : "clear";
+          },
+          audit: (record) => api.logger?.info?.(`[deterministic-router] ${JSON.stringify({ ...record, runId: start.runId })}`),
+        });
+      };
+      registry[CODEX_STAGE_ROUTER] = factory;
+      api.lifecycle.onDispose(() => {
+        if (registry[CODEX_STAGE_ROUTER] === factory) delete registry[CODEX_STAGE_ROUTER];
+        stageTiers.clear();
+      });
+    }
     // A module-local counter can restart when OpenClaw loads a fresh module
     // generation. UUID identity remains unique across those generations.
     const registrationId = randomUUID();
@@ -167,6 +204,7 @@ export default definePluginEntry({
         },
         config,
       );
+      if (stageEnabled && ctx.runId) stageTiers.set(ctx.runId, decision.effectiveTier);
 
       const sessionKey = ctx.sessionKey;
       const session = config.protectManualSelection
@@ -294,6 +332,7 @@ export default definePluginEntry({
         api.logger?.info?.(`[deterministic-router] ${JSON.stringify(observation)}`);
       }
       calls.completeRun(runId);
+      if (runId) stageTiers.delete(runId);
       inbound.complete(runId);
     });
   },

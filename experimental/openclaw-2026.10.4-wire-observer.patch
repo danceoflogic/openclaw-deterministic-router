@@ -1,0 +1,103 @@
+--- a/dist/.setup/inference-dispatch-B5UKEUyC.mjs
++++ b/dist/.setup/inference-dispatch-B5UKEUyC.mjs
+@@ -1,3 +1,4 @@
++import { describeWireRequest } from "./issue42-wire-observer.mjs";
+ import { i as isJsonObject } from "./protocol-CANUwXJ3.mjs";
+ import { n as readCodexInferenceMetadata } from "./inference-metadata-CgIf7sOx.mjs";
+ import { promisify } from "node:util";
+@@ -282,6 +283,7 @@
+ 			const rewritten = prepared && (prepared.body !== value || !isUtf8(bytes)) ? Buffer.from(JSON.stringify(prepared.body)) : bytes;
+ 			if (rewritten.length > 33554432) throw new Error(FAILURE);
+ 			return {
++				wireObservation: describeWireRequest(prepared?.body ?? value, metadata, transport, path),
+ 				bytes: rewritten,
+ 				assertCurrent: assertPrepared,
+ 				signal: AbortSignal.any([
+@@ -315,6 +317,7 @@
+ 				},
+ 				assertCurrent: prepared.assertCurrent,
+ 				signal: prepared.signal,
++				wireObservation: prepared.wireObservation,
+ 				releaseModelExecution: prepared.release
+ 			};
+ 		} catch (error) {
+--- a/dist/.setup/inference-proxy-DUO5E2QQ.mjs
++++ b/dist/.setup/inference-proxy-DUO5E2QQ.mjs
+@@ -1,3 +1,4 @@
++import { observeWireSend, observeWireResponse, wireResponseObserver, mockWireResponse } from "./issue42-wire-observer.mjs";
+ import { t as codexWebSocketDataToBuffer } from "./websocket-data-XlRvt8Ys.mjs";
+ import { CODEX_INFERENCE_TRANSPORT_FAILURE, authorizationFailure, createCodexInferenceDispatch, isTerminalResponse, n as createUploadAdmission, readProxyBody, t as MAX_BODY_BYTES } from "./inference-dispatch-B5UKEUyC.mjs";
+ import { t as createCodexInferenceContext } from "./inference-context-D-9gWlTR.mjs";
+@@ -232,11 +233,14 @@
+ 						signal: upload.signal,
+ 						duplex: "half"
+ 					};
+-					guarded = await fetchWithSsrFGuard({
++					if (process.env.OPENCLAW_STAGE_MOCK_RESPONSE_DIRECTORY) {
++						assertAuthorized(); observeWireSend(upload.wireObservation);
++						guarded = { response: mockWireResponse(upload.wireObservation), release: async () => {} };
++					} else guarded = await fetchWithSsrFGuard({
+ 						url: target.toString(),
+ 						init,
+ 						signal: upload.signal,
+-						beforeRequest: assertAuthorized,
++						beforeRequest: () => { assertAuthorized(); observeWireSend(upload.wireObservation); },
+ 						requireHttps: true,
+ 						maxRedirects: 0,
+ 						capture: false,
+@@ -259,7 +263,7 @@
+ 				delete headers["content-encoding"];
+ 				res.writeHead(guarded.response.status, relayHeaders(headers));
+ 				if (!guarded.response.body) res.end();
+-				else await guarded.response.body.pipeTo(Writable.toWeb(res), { signal: upload.signal });
++				else await guarded.response.body.pipeThrough(wireResponseObserver(upload.wireObservation)).pipeTo(Writable.toWeb(res), { signal: upload.signal });
+ 			} catch (error) {
+ 				if (!res.headersSent && !res.destroyed) {
+ 					const denied = authorizationFailure(error);
+@@ -437,6 +441,7 @@
+ 							releasePermit?.();
+ 							releasePermit = null;
+ 							idle(false);
++							let observedFrame;
+ 							const forward = async (prepared) => {
+ 								let releaseUpload = null;
+ 								try {
+@@ -450,6 +455,8 @@
+ 									}
+ 									if (!remote || remote.readyState !== WebSocket.OPEN || remote.bufferedAmount + prepared.bytes.length > 33554432) throw new Error(CODEX_INFERENCE_TRANSPORT_FAILURE);
+ 									const release = releaseUpload;
++									observedFrame = prepared.wireObservation;
++									observeWireSend(observedFrame);
+ 									remote.send(prepared.bytes, { binary: false }, (error) => {
+ 										release();
+ 										if (error) close();
+@@ -499,6 +506,7 @@
+ 							});
+ 							accepted.once("close", () => releaseFrame());
+ 							remote.on("message", (data, binary) => {
++								if (!binary) observeWireResponse(codexWebSocketDataToBuffer(data), observedFrame);
+ 								if (accepted.readyState !== WebSocket.OPEN || accepted.bufferedAmount + codexWebSocketDataToBuffer(data).length > 33554432) {
+ 									close();
+ 									return;
+--- a/dist/.setup/client-BM1XpAkE.mjs
++++ b/dist/.setup/client-BM1XpAkE.mjs
+@@ -1,3 +1,4 @@
++import { nativeSettingsObserver } from "./issue42-wire-observer.mjs";
+ import { a as readCodexCatalogDecodeRoute, c as isRpcResponse, i as listenCodexAppServerLines, n as projectCodexCatalogMessage, o as CodexAppServerMessageDecoder, r as createCodexAppServerMessageWriter, s as redactCodexAppServerLinePreview } from "./client-catalog-response-CogGEXrN.mjs";
+ import { i as isJsonObject } from "./protocol-CANUwXJ3.mjs";
+ import { c as MIN_SUPPORTED_CODEX_APP_SERVER_VERSION, s as CODEX_APP_SERVER_VERSION } from "./managed-binary-C1VFoVPf.mjs";
+@@ -134,8 +135,10 @@
+ 	return client.getInstanceId?.call(client) ?? getCodexAppServerClientInstanceId(client);
+ }
+ function observeCodexAppServerStderr(stderr, consume) {
++	const observeSettings = nativeSettingsObserver();
+ 	stderr.setEncoding("utf8");
+ 	stderr.on("data", (chunk) => {
++		observeSettings(chunk);
+ 		const text = consume(chunk).trim();
+ 		if (text) embeddedAgentLog.debug(`codex app-server stderr: ${text}`);
+ 	});
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -0,0 +1 @@
++import "./.setup/issue42-wire-observer.mjs";

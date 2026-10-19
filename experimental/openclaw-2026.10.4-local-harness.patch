@@ -1,0 +1,20 @@
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -4426,7 +4426,7 @@
+ 			resolvePluginConfig: resolveCurrentPluginConfig,
+ 			runtime: api.runtime
+ 		};
+-		api.registerAgentHarness(createCodexAppServerAgentHarness(agentHarnessOptions), { nativeCompaction: createCodexAppServerNativeCompaction(agentHarnessOptions) });
++		api.registerAgentHarness(createCodexAppServerAgentHarness(agentHarnessOptions), process.env.OPENCLAW_STAGE_LOCAL_HARNESS === "1" ? undefined : { nativeCompaction: createCodexAppServerNativeCompaction(agentHarnessOptions) });
+ 		api.registerMediaUnderstandingProvider(buildCodexMediaUnderstandingProvider({ pluginConfig: api.pluginConfig }));
+ 		api.registerWebSearchProvider(createCodexWebSearchProvider({ resolvePluginConfig: resolveCurrentPluginConfig }));
+ 		api.registerMigrationProvider(buildCodexMigrationProvider({ runtime: api.runtime }));
+@@ -4469,7 +4469,7 @@
+ 		for (const policy of createCodexCliSessionNodeInvokePolicies()) api.registerNodeInvokePolicy(policy);
+ 		api.registerNodeHostCommand(createCodexNodeExecServerCommand());
+ 		api.registerNodeInvokePolicy(createCodexNodeExecServerInvokePolicy());
+-		api.registerCommand(createCodexCommand({
++		if (process.env.OPENCLAW_STAGE_LOCAL_HARNESS !== "1") api.registerCommand(createCodexCommand({
+ 			pluginConfig: api.pluginConfig,
+ 			resolvePluginConfig: resolveCurrentPluginConfig,
+ 			deps: {

@@ -1,0 +1,200 @@
+{
+  "date": "2026-10-19",
+  "evidenceLevel": "real-provider-execution",
+  "runtime": {
+    "openclaw": "2026.10.4",
+    "codexBase": "0.160.0",
+    "nativeBuild": "experimental patched app-server in isolated TEST managed launch",
+    "nativeExecutableSha256": "96829b2e258e751869651643bb2e5a83c3cfa161f42c93c97dcb70b57f30244e",
+    "mockTransportEnabled": false,
+    "inferenceRetries": 0,
+    "transport": "HTTP Responses"
+  },
+  "configuration": {
+    "stageRouting": {
+      "model": false,
+      "effort": true
+    },
+    "initialEffort": "high",
+    "manualSessionThinkingOverride": false
+  },
+  "nativeThreadId": "01a1554d-03ad-72c2-b560-ceb48d946d0c",
+  "nativeTurnId": "01a1554d-0528-7172-97b5-4f1aefb4e667",
+  "effortSequence": [
+    "high",
+    "high",
+    "low",
+    "high",
+    "high"
+  ],
+  "taskCompleted": true,
+  "taskResult": "Sorted five file words, preserved marker, checked sum-of-cubes identity for n=1..10 and supplied valid induction proof.",
+  "routingDecisions": [
+    {
+      "event": "stage.route",
+      "currentModel": "gpt-6.1-sol",
+      "proposedModel": "gpt-6.1-sol",
+      "requestedChange": false,
+      "reason": "difficult continuation; preserve originally selected model",
+      "nextTier": "REASONING",
+      "currentEffort": "high",
+      "requestedModelChange": false,
+      "durationMs": 2.489452000008896,
+      "runId": "40cb955f-f48b-4a4b-ac17-c3d6b71ec954"
+    },
+    {
+      "event": "stage.route",
+      "currentModel": "gpt-6.1-sol",
+      "proposedModel": "gpt-6.1-sol",
+      "requestedChange": false,
+      "reason": "confirmed new stage classified as SIMPLE; compatible target",
+      "nextTier": "SIMPLE",
+      "currentEffort": "high",
+      "proposedEffort": "low",
+      "requestedModelChange": false,
+      "durationMs": 2.796403000000282,
+      "runId": "40cb955f-f48b-4a4b-ac17-c3d6b71ec954"
+    },
+    {
+      "event": "stage.route",
+      "currentModel": "gpt-6.1-sol",
+      "proposedModel": "gpt-6.1-sol",
+      "requestedChange": false,
+      "reason": "difficult continuation; preserve originally selected model",
+      "nextTier": "REASONING",
+      "currentEffort": "low",
+      "proposedEffort": "high",
+      "requestedModelChange": false,
+      "durationMs": 2.4334470000030706,
+      "runId": "40cb955f-f48b-4a4b-ac17-c3d6b71ec954"
+    }
+  ],
+  "nativeSettings": [
+    {
+      "turnId": "01a1554d-0528-7172-97b5-4f1aefb4e667",
+      "from": "gpt-6.1-sol",
+      "to": "gpt-6.1-sol",
+      "fromEffort": "Some(High)",
+      "toEffort": "Some(Low)",
+      "outcome": "Applied",
+      "elapsedMs": 10.171336
+    },
+    {
+      "turnId": "01a1554d-0528-7172-97b5-4f1aefb4e667",
+      "from": "gpt-6.1-sol",
+      "to": "gpt-6.1-sol",
+      "fromEffort": "Some(Low)",
+      "toEffort": "Some(High)",
+      "outcome": "Applied",
+      "elapsedMs": 48.868327
+    }
+  ],
+  "samples": [
+    {
+      "sample": 1,
+      "requestedModel": "gpt-6.1-sol",
+      "requestedEffort": "high",
+      "providerReportedModel": "gpt-6.1-sol",
+      "providerResponseId": "resp_0c7c0b0676ae5c3f016ad6595be0b081919d1c00ecbd5f490c",
+      "inputTokens": 22197,
+      "cachedInputTokens": 0,
+      "outputTokens": 113,
+      "reasoningTokens": 0,
+      "toolResultCount": 0,
+      "originalContextPresent": true,
+      "taskToolReceiptPresent": false
+    },
+    {
+      "sample": 2,
+      "requestedModel": "gpt-6.1-sol",
+      "requestedEffort": "high",
+      "providerReportedModel": "gpt-6.1-sol",
+      "providerResponseId": "resp_0c7c0b0676ae5c3f016ad6595fe210819196b63ca1eb3192df",
+      "inputTokens": 22334,
+      "cachedInputTokens": 0,
+      "outputTokens": 409,
+      "reasoningTokens": 56,
+      "toolResultCount": 1,
+      "originalContextPresent": true,
+      "taskToolReceiptPresent": false
+    },
+    {
+      "sample": 3,
+      "requestedModel": "gpt-6.1-sol",
+      "requestedEffort": "low",
+      "providerReportedModel": "gpt-6.1-sol",
+      "providerResponseId": "resp_0c7c0b0676ae5c3f016ad65967e64c8191a111aa6bc8ea0676",
+      "inputTokens": 22799,
+      "cachedInputTokens": 0,
+      "outputTokens": 179,
+      "reasoningTokens": 0,
+      "toolResultCount": 2,
+      "originalContextPresent": true,
+      "taskToolReceiptPresent": false
+    },
+    {
+      "sample": 4,
+      "requestedModel": "gpt-6.1-sol",
+      "requestedEffort": "high",
+      "providerReportedModel": "gpt-6.1-sol",
+      "providerResponseId": "resp_0c7c0b0676ae5c3f016ad6596d1120819198e021e8b493cf1f",
+      "inputTokens": 23067,
+      "cachedInputTokens": 22144,
+      "outputTokens": 185,
+      "reasoningTokens": 0,
+      "toolResultCount": 3,
+      "originalContextPresent": true,
+      "taskToolReceiptPresent": true
+    },
+    {
+      "sample": 5,
+      "requestedModel": "gpt-6.1-sol",
+      "requestedEffort": "high",
+      "providerReportedModel": "gpt-6.1-sol",
+      "providerResponseId": "resp_0c7c0b0676ae5c3f016ad6597180a08191a5aca6641dc67ff5",
+      "inputTokens": 23425,
+      "cachedInputTokens": 22912,
+      "outputTokens": 234,
+      "reasoningTokens": 0,
+      "toolResultCount": 4,
+      "originalContextPresent": true,
+      "taskToolReceiptPresent": true
+    }
+  ],
+  "totals": {
+    "inputTokens": 113822,
+    "cachedInputTokens": 45056,
+    "outputTokens": 1120,
+    "reasoningTokens": 56
+  },
+  "wireEvidenceSha256": "41d38dac34b47895c8c093df8320ebcf8725f33e4b1b03c9087ebdce4ea9431a",
+  "performanceNotes": [
+    "Changed-goal classifier timings are host decisions only.",
+    "Native elapsedMs includes awaited host handoff and settings application, not isolated settings-update cost.",
+    "Low request had no cached input; subsequent High requests reused cached prefixes. This does not isolate the effect of changing effort on cache keys.",
+    "Different stages do different work; token observations do not establish savings or causal resource reduction."
+  ],
+  "validation": {
+    "policyConfigAdapterTestsPassed": 18,
+    "nativeIntegrationTestsPassed": 3,
+    "gatewayMockEffortSequence": [
+      "high",
+      "low",
+      "high"
+    ],
+    "gatewayMockRequests": 3,
+    "broaderUnitTestsPassed": 96,
+    "broaderUnitInitialFailures": "Two pinned Gateway authorization imports timed out at 5 seconds; both passed targeted rerun with 60-second timeout.",
+    "typecheck": true,
+    "routerBuild": true,
+    "pinnedNativePatchDryRun": true
+  },
+  "restoration": {
+    "mockAndLiveFilesHashVerified": true,
+    "routerDistHashVerified": true,
+    "mode": "shadow",
+    "protectManualSelection": true,
+    "requireSessionKeyForAuto": true,
+    "autoSessionAllowlistCount": 0
+  }
+}

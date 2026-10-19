@@ -1,0 +1,25 @@
+--- a/dist/.setup/shared-client-r9NcV_GJ.mjs
++++ b/dist/.setup/shared-client-r9NcV_GJ.mjs
+@@ -1,3 +1,4 @@
++import "./issue42-wire-observer.mjs";
+ import { i as isJsonObject } from "./protocol-CANUwXJ3.mjs";
+ import { n as defineCodexBuildState, t as codexBuildSymbol } from "./build-state-BgEYwu09.mjs";
+ import { t as CODEX_APP_SERVER_AUTH_PROVIDER } from "./auth-profile-selection-hr8ocLtz.mjs";
+@@ -2585,6 +2586,7 @@
+ async function prepareCodexInferenceThreadConfig(params) {
+ 	const { binding } = params;
+ 	const owner = owners.get(params.client);
++	if (!owner && process.env.OPENCLAW_STAGE_MOCK_RESPONSE_DIRECTORY) throw new Error("TEST mock requires the admitted native inference proxy; no turn sent");
+ 	if (!owner) return;
+ 	if (owner.closed) throw new Error("Codex inference route ownership changed; reconnect before retrying");
+ 	const preserved = binding?.connectionScope === "supervision" || binding?.preserveNativeModel === true;
+@@ -2664,7 +2666,8 @@
+ 		base_url: route.baseUrl,
+ 		wire_api: "responses",
+ 		requires_openai_auth: true,
+-		supports_websockets: false
++		supports_websockets: false,
++		...(process.env.OPENCLAW_EXPERIMENTAL_STAGE_ROUTING === "1" ? { request_max_retries: 0, stream_max_retries: 0 } : {})
+ 	};
+ }
+ /** Validate the exact private handle and unchanged upstream, not a localhost string exception. */

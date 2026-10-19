@@ -28,6 +28,8 @@ export type RouterPluginConfig = {
   autoSpawnParentGrants: AutoSpawnParentGrant[];
   minAttachmentTier: RouterTier;
   models: Record<RouterTier, ModelTarget>;
+  /** Experimental callback controls; model routing defaults on, effort routing off. */
+  stageRouting?: { model: boolean; effort: boolean };
 };
 
 export type RouteWorkInput = {

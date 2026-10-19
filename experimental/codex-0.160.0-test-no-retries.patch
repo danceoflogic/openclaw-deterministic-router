@@ -1,0 +1,26 @@
+--- a/codex-rs/model-provider-info/src/lib.rs
++++ b/codex-rs/model-provider-info/src/lib.rs
+@@ -518,6 +518,7 @@
+     }
+ 
+     pub fn create_openai_provider(base_url: Option<String>) -> ModelProviderInfo {
++        let stage_test_no_retries = std::env::var("CODEX_STAGE_TEST_NO_RETRIES").as_deref() == Ok("1");
+         ModelProviderInfo {
+             name: OPENAI_PROVIDER_NAME.into(),
+             base_url,
+@@ -547,12 +548,12 @@
+                 .collect(),
+             ),
+             // Use global defaults for retry/timeout unless overridden in config.toml.
+-            request_max_retries: None,
+-            stream_max_retries: None,
++            request_max_retries: stage_test_no_retries.then_some(0),
++            stream_max_retries: stage_test_no_retries.then_some(0),
+             stream_idle_timeout_ms: None,
+             websocket_connect_timeout_ms: None,
+             requires_openai_auth: true,
+-            supports_websockets: true,
++            supports_websockets: !stage_test_no_retries,
+             supports_standalone_web_search: true,
+             include_internal_metadata: true,
+         }
