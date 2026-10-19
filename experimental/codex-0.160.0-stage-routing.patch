@@ -1,0 +1,414 @@
+diff --git a/codex-rs/app-server-protocol/src/protocol/common.rs b/codex-rs/app-server-protocol/src/protocol/common.rs
+index c37c495..3916066 100644
+--- a/codex-rs/app-server-protocol/src/protocol/common.rs
++++ b/codex-rs/app-server-protocol/src/protocol/common.rs
+@@ -1809,6 +1809,13 @@ server_request_definitions! {
+         response: v2::AttestationGenerateResponse,
+     },
+ 
++    #[experimental("turn/stageRouting")]
++    /// Await a host stage decision before the next model-settings capture.
++    StageRouting => "turn/stageRouting" {
++        params: v2::StageRoutingParams,
++        response: v2::StageRoutingResponse,
++    },
++
+     #[experimental("currentTime/read")]
+     /// Read the current time from an external clock owned by the client.
+     CurrentTimeRead => "currentTime/read" {
+diff --git a/codex-rs/app-server-protocol/src/protocol/v2/mod.rs b/codex-rs/app-server-protocol/src/protocol/v2/mod.rs
+index 5bc7d96..2c7350b 100644
+--- a/codex-rs/app-server-protocol/src/protocol/v2/mod.rs
++++ b/codex-rs/app-server-protocol/src/protocol/v2/mod.rs
+@@ -11,6 +11,7 @@ mod command_exec;
+ mod computer_use_config;
+ mod config;
+ mod current_time;
++mod stage_routing;
+ mod diagnostics;
+ mod environment;
+ mod experimental_feature;
+@@ -50,6 +51,7 @@ pub use command_exec::*;
+ pub use computer_use_config::*;
+ pub use config::*;
+ pub use current_time::*;
++pub use stage_routing::*;
+ pub use diagnostics::*;
+ pub use environment::*;
+ pub use experimental_feature::*;
+diff --git a/codex-rs/app-server-protocol/src/protocol/v2/stage_routing.rs b/codex-rs/app-server-protocol/src/protocol/v2/stage_routing.rs
+new file mode 100644
+index 0000000..651122d
+--- /dev/null
++++ b/codex-rs/app-server-protocol/src/protocol/v2/stage_routing.rs
+@@ -0,0 +1,25 @@
++use crate::JsonSchema;
++use crate::TS;
++use serde::Deserialize;
++use serde::Serialize;
++
++/// Sent only after the response and its complete tool batch settle, before capture.
++#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase")]
++#[ts(export_to = "v2/")]
++pub struct StageRoutingParams {
++    pub thread_id: String,
++    pub turn_id: String,
++    pub model: String,
++    pub next_objective: Option<String>,
++}
++
++#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++#[ts(export_to = "v2/")]
++pub struct StageRoutingResponse {
++    /// Omission retains the current model. Native validation is never bypassed.
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    #[ts(optional)]
++    pub model: Option<String>,
++}
+diff --git a/codex-rs/app-server/src/lib.rs b/codex-rs/app-server/src/lib.rs
+index d1a622c..e78899d 100644
+--- a/codex-rs/app-server/src/lib.rs
++++ b/codex-rs/app-server/src/lib.rs
+@@ -108,6 +108,7 @@ mod config_manager_service;
+ mod connection_cleanup;
+ mod connection_rpc_gate;
+ mod current_time;
++mod stage_routing;
+ mod daemon_thread_recovery;
+ mod dynamic_tools;
+ mod effective_plugin_change;
+diff --git a/codex-rs/app-server/src/message_processor.rs b/codex-rs/app-server/src/message_processor.rs
+index 9e9a904..82ba3a2 100644
+--- a/codex-rs/app-server/src/message_processor.rs
++++ b/codex-rs/app-server/src/message_processor.rs
+@@ -369,6 +369,15 @@ impl MessageProcessor {
+                     thread_state_manager.clone(),
+                 )),
+             );
++            let manager = if std::env::var("CODEX_EXPERIMENTAL_STAGE_ROUTING").as_deref() == Ok("1")
++            {
++                manager.with_stage_router(Arc::new(crate::stage_routing::AppServerStageRouter {
++                    outgoing: Arc::downgrade(&outgoing),
++                    threads: thread_state_manager.clone(),
++                }))
++            } else {
++                manager
++            };
+             match code_mode_session_provider {
+                 Some(provider) => manager.with_code_mode_session_provider(provider),
+                 None => manager,
+diff --git a/codex-rs/app-server/src/stage_routing.rs b/codex-rs/app-server/src/stage_routing.rs
+new file mode 100644
+index 0000000..3ac416a
+--- /dev/null
++++ b/codex-rs/app-server/src/stage_routing.rs
+@@ -0,0 +1,62 @@
++use std::sync::Weak;
++
++use anyhow::Context;
++use codex_app_server_protocol::ServerRequestPayload;
++use codex_app_server_protocol::StageRoutingParams;
++use codex_app_server_protocol::StageRoutingResponse;
++use codex_core::StageRouter;
++use codex_protocol::ThreadId;
++
++use crate::outgoing_message::OutgoingMessageSender;
++use crate::thread_state::ThreadStateManager;
++
++pub(crate) struct AppServerStageRouter {
++    pub outgoing: Weak<OutgoingMessageSender>,
++    pub threads: ThreadStateManager,
++}
++
++impl StageRouter for AppServerStageRouter {
++    fn route(
++        &self,
++        thread_id: ThreadId,
++        turn_id: String,
++        model: String,
++        next_objective: Option<String>,
++    ) -> std::pin::Pin<
++        Box<dyn std::future::Future<Output = anyhow::Result<Option<String>>> + Send + '_>,
++    > {
++        Box::pin(async move {
++            let outgoing = self
++                .outgoing
++                .upgrade()
++                .context("stage routing transport closed")?;
++            let connections = self.threads.subscribed_connection_ids(thread_id).await;
++            anyhow::ensure!(
++                connections.len() == 1,
++                "stage routing requires exactly one subscribed owner"
++            );
++            let (id, response) = outgoing
++                .send_request_to_connections(
++                    Some(&connections),
++                    ServerRequestPayload::StageRouting(StageRoutingParams {
++                        thread_id: thread_id.to_string(),
++                        turn_id,
++                        model,
++                        next_objective,
++                    }),
++                    Some(thread_id),
++                )
++                .await;
++            let result = tokio::time::timeout(std::time::Duration::from_secs(5), response).await;
++            match result {
++                Ok(Ok(Ok(value))) => {
++                    Ok(serde_json::from_value::<StageRoutingResponse>(value)?.model)
++                }
++                _ => {
++                    let _ = outgoing.cancel_request(&id).await;
++                    anyhow::bail!("stage routing answer unavailable; no model change applied")
++                }
++            }
++        })
++    }
++}
+diff --git a/codex-rs/core/src/lib.rs b/codex-rs/core/src/lib.rs
+index 2595ce5..c14cf60 100644
+--- a/codex-rs/core/src/lib.rs
++++ b/codex-rs/core/src/lib.rs
+@@ -83,6 +83,7 @@ pub mod connectors;
+ pub mod context;
+ mod context_manager;
+ mod current_time;
++mod stage_routing;
+ mod cyber_access_program;
+ mod elicitation;
+ mod environment_selection;
+@@ -231,6 +232,7 @@ pub use compact::content_items_to_text;
+ pub use current_time::SleepFuture;
+ pub use current_time::TimeFuture;
+ pub use current_time::TimeProvider;
++pub use stage_routing::StageRouter;
+ pub use event_mapping::parse_turn_item;
+ pub use exec_policy::ExecPolicyError;
+ pub use exec_policy::check_execpolicy_for_warnings;
+diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
+index e08a0fa..7082a8e 100644
+--- a/codex-rs/core/src/session/mod.rs
++++ b/codex-rs/core/src/session/mod.rs
+@@ -255,6 +255,7 @@ mod rollout_reconstruction;
+ #[allow(clippy::module_inception)]
+ pub(crate) mod session;
+ pub(crate) mod startup_prewarm;
++mod stage_routing;
+ mod step_activation;
+ pub(crate) mod step_context;
+ pub(crate) mod step_settings;
+diff --git a/codex-rs/core/src/session/stage_routing.rs b/codex-rs/core/src/session/stage_routing.rs
+new file mode 100644
+index 0000000..6999b60
+--- /dev/null
++++ b/codex-rs/core/src/session/stage_routing.rs
+@@ -0,0 +1,60 @@
++use std::sync::Arc;
++
++use codex_async_utils::OrCancelExt;
++use codex_features::Feature;
++use codex_protocol::error::Result as CodexResult;
++use codex_protocol::protocol::TurnSettingsUpdate;
++use tokio_util::sync::CancellationToken;
++
++use super::session::Session;
++use super::turn_context::TurnContext;
++use crate::stage_routing::StageRoutingHandler;
++use crate::stage_routing::StageRoutingObjective;
++
++pub(super) async fn route_completed_stage(
++    session: &Arc<Session>,
++    turn: &Arc<TurnContext>,
++    cancellation: &CancellationToken,
++) -> CodexResult<()> {
++    if !session.features.enabled(Feature::StepModelSwitching) {
++        return Ok(());
++    }
++    let Some(handler) = session
++        .services
++        .thread_extension_data
++        .get::<StageRoutingHandler>()
++    else {
++        return Ok(());
++    };
++    let objective = turn
++        .extension_data
++        .get::<StageRoutingObjective>()
++        .and_then(|state| state.0.clone());
++    let model = turn.capture_current_model_info().slug.clone();
++    let started = std::time::Instant::now();
++    let selected = handler
++        .0
++        .route(
++            session.thread_id,
++            turn.sub_id.clone(),
++            model.clone(),
++            objective,
++        )
++        .or_cancel(cancellation)
++        .await?;
++    match selected {
++        Ok(Some(next)) if next != model => {
++            let _ = cancellation.clone().run_until_cancelled(async {
++                let outcome = session.apply_turn_settings(&turn.sub_id, TurnSettingsUpdate {
++                    model: Some(next.clone()), ..Default::default()
++                }).await;
++                tracing::info!(turn_id = %turn.sub_id, from = %model, to = %next, ?outcome, elapsed_ms = started.elapsed().as_secs_f64() * 1000.0, "stage routing settings outcome");
++            }).await;
++        }
++        Err(error) => {
++            tracing::warn!(%error, "stage routing unavailable; retaining current settings")
++        }
++        Ok(_) => {}
++    }
++    Ok(())
++}
+diff --git a/codex-rs/core/src/session/turn.rs b/codex-rs/core/src/session/turn.rs
+index 5b335c2..ce59c77 100644
+--- a/codex-rs/core/src/session/turn.rs
++++ b/codex-rs/core/src/session/turn.rs
+@@ -423,6 +423,7 @@ pub(crate) async fn run_turn(
+ 
+     let mut next_step_context = Some(first_step_context);
+     let mut guardian_budget_compacted = false;
++    let mut completed_stage_pending = false;
+     loop {
+         // Note that pending_input would be something like a message the user
+         // submitted through the UI while the model was running. Though the UI
+@@ -458,6 +459,11 @@ pub(crate) async fn run_turn(
+         )
+         .await;
+ 
++        if std::mem::take(&mut completed_stage_pending) {
++            super::stage_routing::route_completed_stage(&sess, &turn_context, &cancellation_token)
++                .await?;
++        }
++
+         // Capture once so context, advertised tools, and tool calls share one request view.
+         let step_context = match next_step_context.take() {
+             Some(step_context) if pending_input.is_empty() => step_context,
+@@ -564,6 +570,7 @@ pub(crate) async fn run_turn(
+                 .instrument(trace_span!("run_turn.collect_post_sampling_state"))
+                 .await;
+                 let needs_follow_up = model_needs_follow_up || has_pending_input;
++                completed_stage_pending = needs_follow_up;
+                 let token_limit_reached = token_status.token_limit_reached;
+ 
+                 trace!(
+diff --git a/codex-rs/core/src/stage_routing.rs b/codex-rs/core/src/stage_routing.rs
+new file mode 100644
+index 0000000..65ba5ba
+--- /dev/null
++++ b/codex-rs/core/src/stage_routing.rs
+@@ -0,0 +1,24 @@
++//! Opt-in host handoff at a completed response/tool-batch boundary.
++use std::future::Future;
++use std::pin::Pin;
++use std::sync::Arc;
++
++use codex_protocol::ThreadId;
++
++/// Host-owned routing, not a model tool. Returning no model retains settings.
++pub trait StageRouter: Send + Sync {
++    fn route(
++        &self,
++        thread_id: ThreadId,
++        turn_id: String,
++        model: String,
++        next_objective: Option<String>,
++    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Option<String>>> + Send + '_>>;
++}
++
++/// Thread attachment supplied only by a host that implements the protocol.
++#[derive(Clone)]
++pub(crate) struct StageRoutingHandler(pub Arc<dyn StageRouter>);
++
++/// Latest accepted plan; scoped to the turn and read only after its tools drain.
++pub(crate) struct StageRoutingObjective(pub Option<String>);
+diff --git a/codex-rs/core/src/thread_manager.rs b/codex-rs/core/src/thread_manager.rs
+index ba195d8..b34d7e4 100644
+--- a/codex-rs/core/src/thread_manager.rs
++++ b/codex-rs/core/src/thread_manager.rs
+@@ -422,6 +422,7 @@ pub(crate) struct ThreadManagerState {
+     agent_graph_store: Option<Arc<dyn AgentGraphStore>>,
+     attestation_provider: Option<Arc<dyn AttestationProvider>>,
+     external_time_provider: Option<Arc<dyn TimeProvider>>,
++    stage_router: Option<crate::stage_routing::StageRoutingHandler>,
+     session_source: SessionSource,
+     installation_id: String,
+     analytics_events_client: Option<AnalyticsEventsClient>,
+@@ -584,6 +585,7 @@ impl ThreadManager {
+                 agent_graph_store,
+                 attestation_provider,
+                 external_time_provider,
++                stage_router: None,
+                 auth_manager,
+                 session_source,
+                 installation_id,
+@@ -629,6 +631,17 @@ impl ThreadManager {
+         self
+     }
+ 
++    /// Installs opt-in stage routing before this manager is shared.
++    pub fn with_stage_router(
++        mut self,
++        provider: Arc<dyn crate::stage_routing::StageRouter>,
++    ) -> Self {
++        Arc::get_mut(&mut self.state)
++            .expect("stage router must be set before sharing")
++            .stage_router = Some(crate::stage_routing::StageRoutingHandler(provider));
++        self
++    }
++
+     /// Replaces the process-wide provider before this manager is shared with threads.
+     pub fn with_code_mode_session_provider(
+         mut self,
+@@ -759,6 +772,7 @@ impl ThreadManager {
+                 agent_graph_store,
+                 attestation_provider: None,
+                 external_time_provider: None,
++                stage_router: None,
+                 auth_manager,
+                 session_source: SessionSource::Exec,
+                 installation_id,
+@@ -2087,6 +2101,9 @@ impl ThreadManagerState {
+                 }
+             });
+         thread_extension_init.insert(isolation);
++        if let Some(router) = &self.stage_router {
++            thread_extension_init.insert(router.clone());
++        }
+         let environments = environments
+             .or_else(|| {
+                 let SessionSource::SubAgent(SubAgentSource::ThreadSpawn { .. }) = &session_source
+diff --git a/codex-rs/core/src/tools/handlers/plan.rs b/codex-rs/core/src/tools/handlers/plan.rs
+index 3495656..bdcbb7b 100644
+--- a/codex-rs/core/src/tools/handlers/plan.rs
++++ b/codex-rs/core/src/tools/handlers/plan.rs
+@@ -9,6 +9,7 @@ use crate::tools::registry::ToolExecutor;
+ use codex_protocol::config_types::ModeKind;
+ use codex_protocol::models::FunctionCallOutputPayload;
+ use codex_protocol::models::ResponseInputItem;
++use codex_protocol::plan_tool::StepStatus;
+ use codex_protocol::plan_tool::UpdatePlanArgs;
+ use codex_protocol::protocol::EventMsg;
+ use codex_tools::ToolName;
+@@ -91,6 +92,16 @@ impl PlanHandler {
+         }
+ 
+         let args = parse_update_plan_arguments(&arguments)?;
++        let mut active = args
++            .plan
++            .iter()
++            .filter(|item| matches!(item.status, StepStatus::InProgress));
++        let objective = active.next().and_then(|item| {
++            (active.next().is_none() && (4..=8192).contains(&item.step.len()))
++                .then(|| item.step.clone())
++        });
++        turn.extension_data
++            .insert(crate::stage_routing::StageRoutingObjective(objective));
+         session
+             .send_event(turn.as_ref(), EventMsg::PlanUpdate(args))
+             .await;

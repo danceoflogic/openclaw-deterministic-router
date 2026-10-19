@@ -1,0 +1,148 @@
+{
+  "date": "2026-10-19",
+  "evidenceLevel": "real-provider-execution",
+  "runtime": {
+    "openclaw": "2026.10.4",
+    "codexBase": "0.160.0",
+    "nativeBuild": "experimental patched app-server, TEST managed launch",
+    "transport": "HTTP Responses",
+    "nativeCompactionTested": false,
+    "inferenceRetries": 0,
+    "mockTransportEnabled": false,
+    "nativeExecutableSha256": "f4bf2cc3000fb22b719d826e140729c6a662d5febba010b9bdbffec99242457d"
+  },
+  "nativeThreadId": "01a1550c-980b-73e0-b9ef-52d034385153",
+  "nativeTurnId": "01a1550c-9ac2-7961-a8bc-01683b90ff1d",
+  "taskCompleted": true,
+  "taskResult": "Sorted five words from the task file, preserved the marker, checked n=1..10 and gave a valid induction proof.",
+  "routingDecisions": [
+    {
+      "event": "stage.route",
+      "currentModel": "gpt-6.1-sol",
+      "proposedModel": "gpt-6.1-sol",
+      "requestedChange": false,
+      "reason": "difficult continuation; preserve originally selected model",
+      "durationMs": 1.5364909999771044
+    },
+    {
+      "event": "stage.route",
+      "currentModel": "gpt-6.1-sol",
+      "proposedModel": "gpt-6-sol",
+      "requestedChange": true,
+      "reason": "confirmed new stage classified as SIMPLE; compatible target",
+      "durationMs": 1.568468000012217
+    },
+    {
+      "event": "stage.route",
+      "currentModel": "gpt-6-sol",
+      "proposedModel": "gpt-6.1-sol",
+      "requestedChange": true,
+      "reason": "difficult continuation; preserve originally selected model",
+      "durationMs": 1.6109509999805596
+    }
+  ],
+  "nativeSettings": [
+    {
+      "turnId": "01a1550c-9ac2-7961-a8bc-01683b90ff1d",
+      "from": "gpt-6.1-sol",
+      "to": "gpt-6-sol",
+      "outcome": "Applied",
+      "elapsedMs": 11.034141
+    },
+    {
+      "turnId": "01a1550c-9ac2-7961-a8bc-01683b90ff1d",
+      "from": "gpt-6-sol",
+      "to": "gpt-6.1-sol",
+      "outcome": "Applied",
+      "elapsedMs": 14.255207
+    }
+  ],
+  "samples": [
+    {
+      "sample": 1,
+      "requestedModel": "gpt-6.1-sol",
+      "providerReportedModel": "gpt-6.1-sol",
+      "inputTokens": 22179,
+      "cachedInputTokens": 0,
+      "outputTokens": 115,
+      "toolResultCount": 0,
+      "originalContextPresent": true,
+      "taskToolReceiptPresent": false
+    },
+    {
+      "sample": 2,
+      "requestedModel": "gpt-6.1-sol",
+      "providerReportedModel": "gpt-6.1-sol",
+      "inputTokens": 22318,
+      "cachedInputTokens": 22016,
+      "outputTokens": 368,
+      "toolResultCount": 1,
+      "originalContextPresent": true,
+      "taskToolReceiptPresent": false
+    },
+    {
+      "sample": 3,
+      "requestedModel": "gpt-6-sol",
+      "providerReportedModel": "gpt-6-sol",
+      "inputTokens": 26303,
+      "cachedInputTokens": 0,
+      "outputTokens": 246,
+      "toolResultCount": 2,
+      "originalContextPresent": true,
+      "taskToolReceiptPresent": false
+    },
+    {
+      "sample": 4,
+      "requestedModel": "gpt-6.1-sol",
+      "providerReportedModel": "gpt-6.1-sol",
+      "inputTokens": 30270,
+      "cachedInputTokens": 22144,
+      "outputTokens": 86,
+      "toolResultCount": 3,
+      "originalContextPresent": true,
+      "taskToolReceiptPresent": true
+    },
+    {
+      "sample": 5,
+      "requestedModel": "gpt-6.1-sol",
+      "providerReportedModel": "gpt-6.1-sol",
+      "inputTokens": 30521,
+      "cachedInputTokens": 30080,
+      "outputTokens": 176,
+      "toolResultCount": 4,
+      "originalContextPresent": true,
+      "taskToolReceiptPresent": true
+    },
+    {
+      "sample": 6,
+      "requestedModel": "gpt-6.1-sol",
+      "providerReportedModel": "gpt-6.1-sol",
+      "inputTokens": 30721,
+      "cachedInputTokens": 30336,
+      "outputTokens": 178,
+      "toolResultCount": 5,
+      "originalContextPresent": true,
+      "taskToolReceiptPresent": true
+    }
+  ],
+  "totals": {
+    "inputTokens": 162312,
+    "cachedInputTokens": 104576,
+    "outputTokens": 1169
+  },
+  "rawWireEvidenceSha256": "5daedca52230c8cf0b6ad363597b5c065da17a1224f5d27a159211837a412c75",
+  "limitations": [
+    "Plan-aware routing requires a changed accepted native update_plan goal.",
+    "Luna differs in admitted Node REPL review requirements; the native guard is retained.",
+    "This requires experimental native/adapter patches, not stock plugin configuration.",
+    "No cost savings or general latency benefit established."
+  ],
+  "testEnvironmentRestored": {
+    "allBackedUpFilesMatch": true,
+    "routerBuildMatches": true,
+    "mode": "shadow",
+    "manualGuard": true,
+    "sessionGuard": true,
+    "autoSessionAllowlistCount": 0
+  }
+}

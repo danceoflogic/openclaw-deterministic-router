@@ -3,9 +3,9 @@ import { routeWork } from "./route-work.js";
 import type { ModelTarget, RouterPluginConfig, RouterTier } from "./types.js";
 
 /**
- * Pure, OFFLINE-ONLY proposal at a future Codex follow-up sampling boundary.
- * It is not registered with OpenClaw or Codex and never dispatches/changes a model.
- * An eventual runtime adapter MUST verify the boundary, persisted manual state,
+ * Pure proposal at a Codex follow-up sampling boundary.
+ * This function never dispatches or changes a model.
+ * The opt-in runtime adapter MUST verify the boundary, persisted manual state,
  * authority, model eligibility, and applied settings independently.
  */
 export type StageBoundary = {

@@ -7,6 +7,7 @@ import { createInterface } from "node:readline";
 import { expect, it } from "vitest";
 import { DEFAULT_PLUGIN_CONFIG } from "../src/config.js";
 import { proposeStageRoute } from "../src/stage-routing.js";
+import { createStageRoutingSession } from "../src/codex-stage-adapter.js";
 
 // Opt-in, ZERO inference: the real installed Codex talks only to a loopback
 // scripted provider. This verifies the update API, NOT a stage-routing hook or
@@ -16,6 +17,7 @@ const catalogPath = process.env.ISSUE42_MODEL_CATALOG;
 type Message = Record<string, any>;
 
 class Rpc {
+  onRequest?: (message: Message) => Promise<unknown>;
   private id = 0;
   private pending = new Map<number, { resolve: (value: any) => void; reject: (error: Error) => void }>();
   private queued: Message[] = [];
@@ -28,6 +30,11 @@ class Rpc {
         this.pending.delete(message.id);
         if (message.error) pending?.reject(new Error(JSON.stringify(message.error)));
         else pending?.resolve(message.result);
+      } else if (message.method && message.id !== undefined && this.onRequest) {
+        this.onRequest(message).then(
+          (result) => this.send({ id: message.id, result }),
+          (error) => this.send({ id: message.id, error: { code: -32603, message: String(error) } }),
+        );
       } else {
         const index = this.waiters.findIndex((entry) => entry.method === message.method);
         if (index >= 0) this.waiters.splice(index, 1)[0]!.resolve(message);
@@ -184,10 +191,10 @@ stream_max_retries = 0
     expect(ordering.lastIndexOf(`settings-applied:${sol.model}`)).toBeLessThan(ordering.lastIndexOf(`request:${sol.model}`));
     console.info("OFFLINE ONLY: installed Codex accepted updates; loopback request bodies Sol -> Luna -> Sol; one completed turn; context/tool receipts intact. No real models executed and no stage hook verified.");
   } catch (error) {
-    throw new Error(`${String(error)}\n${stderr}`);
+    throw new Error(`${String(error)}\n${stderr.split("\n").filter(line => /stage routing|ERROR|WARN/.test(line)).join("\n")}`);
   } finally {
     clearTimeout(deadline);
-    if (child && child.exitCode === null) {
+    if (child && child.exitCode === null && child.signalCode === null) {
       const exited = new Promise<void>((resolve) => child!.once("exit", () => resolve()));
       child.kill("SIGKILL");
       await exited;
@@ -197,3 +204,126 @@ stream_max_retries = 0
     await rm(home, { recursive: true, force: true });
   }
 }, 30_000);
+
+const stageBinary = process.env.ISSUE42_STAGE_BIN;
+it.skipIf(!stageBinary || !catalogPath).each([false, true])("awaited complete-batch routing; reject incompatible metadata=%s", async (rejectIncompatible) => {
+  const home = await mkdtemp(join(tmpdir(), "issue42-stage-"));
+  const bodies: Message[] = [];
+  const stages: Message[] = [];
+  const receipts: string[] = [];
+  let child: ChildProcessWithoutNullStreams | undefined;
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  let stderr = "";
+  let failure: unknown;
+  const objectives = [
+    "Sort this provided list alphabetically; deterministic formatting only, no analysis or explanation.",
+    "Prove this theorem formally, step by step, and derive the result.",
+  ];
+  const server = createServer(async (req, res) => {
+    try {
+      expect(req.url).toBe("/v1/responses");
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) chunks.push(Buffer.from(chunk));
+      bodies.push(JSON.parse(Buffer.concat(chunks).toString()));
+      const n = bodies.length;
+      if (n > 3) throw new Error("Unexpected retry or extra mock request");
+      res.writeHead(200, { "Content-Type": "text/event-stream" });
+      const emit = (event: Message) => res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+      emit({ type: "response.created", response: { id: `s${n}` } });
+      if (n < 3) {
+        emit({ type: "response.output_item.done", item: { type: "function_call", call_id: `work${n}`,
+          name: "offline_work", arguments: "{}" } });
+        emit({ type: "response.output_item.done", item: { type: "function_call", call_id: `plan${n}`,
+          name: "update_plan", arguments: JSON.stringify({ plan: [{ step: objectives[n - 1], status: "in_progress" }] }) } });
+      } else emit({ type: "response.output_item.done", item: { type: "message", role: "assistant", id: "final",
+        content: [{ type: "output_text", text: "automatic offline task complete" }] } });
+      emit({ type: "response.completed", response: { id: `s${n}`, usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 } } });
+      res.end();
+    } catch (error) { failure = error; res.writeHead(500).end(); }
+  });
+  try {
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("No loopback listener");
+    const catalog = JSON.parse(await readFile(catalogPath!, "utf8"));
+    const template = catalog.models.find((model: Message) => model.slug === "gpt-5.5");
+    await writeFile(join(home, "models.json"), JSON.stringify({ models: ["gpt-6-sol", "gpt-6-luna"].map((slug) => ({ ...template, slug,
+      ...(rejectIncompatible && slug === "gpt-6-luna" ? { node_repl_auto_review_required: !template.node_repl_auto_review_required } : {}),
+    })) }));
+    await writeFile(join(home, "config.toml"), `
+tools.update_plan.enabled = true
+model = "gpt-6-sol"
+model_provider = "offline"
+model_catalog_json = ${JSON.stringify(join(home, "models.json"))}
+approval_policy = "never"
+sandbox_mode = "read-only"
+model_reasoning_effort = "low"
+[features]
+step_model_switching = true
+shell_tool = false
+[analytics]
+enabled = false
+[model_providers.offline]
+name = "Loopback scripted provider"
+base_url = "http://127.0.0.1:${address.port}/v1"
+wire_api = "responses"
+requires_openai_auth = false
+supports_websockets = false
+request_max_retries = 0
+stream_max_retries = 0
+`);
+    child = spawn(stageBinary!, ["--listen", "stdio://"], { cwd: home,
+      env: { PATH: process.env.PATH, HOME: home, CODEX_HOME: home, OTEL_SDK_DISABLED: "true",
+        CODEX_EXPERIMENTAL_STAGE_ROUTING: "1", RUST_LOG: "codex_core=warn,codex_core::session::stage_routing=info", LOG_FORMAT: "json" }, stdio: "pipe" });
+    deadline = setTimeout(() => child?.kill("SIGKILL"), 25_000);
+    child.stderr.on("data", (data) => { stderr = (stderr + data.toString()).slice(-20000); });
+    const rpc = new Rpc(child);
+    const route = createStageRoutingSession({ config: DEFAULT_PLUGIN_CONFIG, originalTier: "REASONING",
+      originalModel: { provider: "openai", model: "gpt-6-sol" }, readManualState: () => "clear" });
+    rpc.onRequest = async (request) => {
+      if (request.method === "item/tool/call") {
+        const text = `settled-receipt-${request.params.callId}`;
+        receipts.push(text);
+        return { success: true, contentItems: [{ type: "inputText", text }] };
+      }
+      if (request.method === "turn/stageRouting") {
+        // No held tool, timer or settings RPC: Codex itself awaited the boundary.
+        expect(receipts).toHaveLength(bodies.length);
+        stages.push(request.params);
+        return route(request.params);
+      }
+      throw new Error(`Unexpected request ${request.method}`);
+    };
+    await rpc.request("initialize", { clientInfo: { name: "issue42_stage", version: "0.1.0" }, capabilities: { experimentalApi: true } });
+    rpc.send({ method: "initialized" });
+    const { thread } = await rpc.request("thread/start", { model: "gpt-6-sol", cwd: home,
+      dynamicTools: [{ type: "function", name: "offline_work", description: "Mock work", inputSchema: { type: "object", properties: {} } }] });
+    const { turn } = await rpc.request("turn/start", { threadId: thread.id,
+      input: [{ type: "text", text: "automatic-context-marker" }] });
+    const done = await rpc.next("turn/completed");
+    expect(done.params.turn).toMatchObject({ id: turn.id, status: "completed" });
+    expect(failure).toBeUndefined();
+    expect(bodies.map((body) => body.model)).toEqual(["gpt-6-sol", rejectIncompatible ? "gpt-6-sol" : "gpt-6-luna", "gpt-6-sol"]);
+    expect(stages).toHaveLength(2);
+    expect(stages.map((stage) => [stage.threadId, stage.turnId, stage.nextObjective]))
+      .toEqual(objectives.map((goal) => [thread.id, turn.id, goal]));
+    for (const marker of ["automatic-context-marker", ...receipts]) expect(JSON.stringify(bodies[2]!.input)).toContain(marker);
+    expect(stderr).toContain("stage routing settings outcome");
+    if (rejectIncompatible) {
+      expect(stderr).toContain("Rejected");
+      expect(stderr).toContain("admitted node REPL review requirement");
+      expect(stderr).not.toContain('"outcome":"Applied"');
+    } else expect(stderr.match(/"outcome":"Applied"/g)).toHaveLength(2);
+  } catch (error) {
+    throw new Error(`${String(error)}\n${stderr.split("\n").filter(line => /stage routing|ERROR|WARN/.test(line)).join("\n")}`);
+  } finally {
+    clearTimeout(deadline);
+    if (child && child.exitCode === null && child.signalCode === null) {
+      const exited = new Promise<void>((resolve) => child!.once("exit", () => resolve()));
+      child.kill("SIGKILL"); await exited;
+    }
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await rm(home, { recursive: true, force: true });
+  }
+}, 35_000);

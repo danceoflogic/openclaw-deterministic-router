@@ -1,53 +1,69 @@
-# Stage routing prototype: offline only
+# Experimental synchronous stage routing
 
-**18 October 2026, Issue [#42](https://github.com/danceoflogic/openclaw-deterministic-router/issues/42).** This commit adds a **pure TypeScript stage model proposal** and fake-host tests, **not** an OpenClaw/Codex runtime adapter or production AUTO activation.
+Issue [#42](https://github.com/danceoflogic/openclaw-deterministic-router/issues/42), draft [PR #47](https://github.com/danceoflogic/openclaw-deterministic-router/pull/47). **Experimental only; do not merge or install in production.**
 
-## What is implemented
+## Implementation
 
-- `src/stage-routing.ts` exports `proposeStageRoute`, a synchronous and deterministic recommendation. Existing `routeWork()` and its 15-dimensional local classifier/policy are reused.
-- Requires explicit experimental enablement, authoritative *clear* manual-selection state from a future trusted adapter, a completed model response, settled tool batch and independently confirmed *new stage objective*. A progress message by itself is not a stage boundary.
-- Work remains anchored to the original task model/tier. Difficult continuation keeps the **original chosen model**, regardless of model family. A confirmed different straightforward stage can propose another eligible same-provider model. Empty/missing eligibility, unsuitable goal, active tools or unknown model state keep the current model.
-- Recommendations never dispatch, patch a session, change a Gateway setting or update a Codex thread. The model returned is **not** observed runtime identity.
-- `tests/stage-routing.test.ts` exercises guards and a fake synchronised model sequence `Sol → Luna → Sol`, with simulated settings acknowledgments strictly preceding fake dispatch. These are neither real model requests nor evidence that the installed runtime can perform the transition.
+The existing deterministic `proposeStageRoute` / `routeWork` policy is unchanged. `src/codex-stage-adapter.ts` supplies a per-turn adapter. It classifies only a changed, bounded next-stage objective, retains the originally selected model for difficult continuations, and rechecks persisted manual-selection state. Configured candidates are policy targets, not proof of native compatibility or entitlement.
 
-## Installed-runtime investigation (18 October 2026)
+`experimental/codex-0.160.0-stage-routing.patch` applies to Codex tag `rust-v0.160.0`, commit `a956835d020762cb2b570053af06f643a11c0ecc`. It adds one awaited experimental server request, `turn/stageRouting`, after the entire preceding response/tool batch settles and before the next immutable step settings capture. The reply contains an optional model. Codex applies it through its existing `apply_turn_settings` implementation and awaits native validation/publication before continuing. Rejection, cancellation, missing ownership or a five-second unanswered handoff never publishes a delayed change. No timer decides which inference to change.
 
-Inspected the isolated TEST installation: OpenClaw / `@openclaw/codex` **2026.10.4**, Codex CLI **0.160.0**. Generated the experimental TypeScript protocol from that exact installed binary, and traced matching upstream tag `rust-v0.160.0`, commit `a956835d020762cb2b570053af06f643a11c0ecc`. This supersedes the earlier unverified/older-version claim about the API limitation.
+The stage objective comes from a native accepted `update_plan` with exactly one bounded `in_progress` goal. Commentary alone is not a formal stage boundary. This is **plan-aware routing**, not general automatic interpretation of every progress message or individual tool result. Tasks without changed accepted goals retain their current model.
 
-**The settings API works; the synchronous boundary is missing.** `turn/settings/update`, with experimental API negotiation and `features.step_model_switching=true`, publishes the running turn's next-step settings. Ordinary thread/future-turn settings are a different API and their next-turn-only regression does not establish a limitation of this method.
+`experimental/openclaw-2026.10.4-stage-routing.patch` connects that request to the router's process-local factory. It also opts native `update_plan` into the experimental tool surface. Both sides are disabled by default:
 
-Exact source locations (pinned commit above):
+- Router/adapter: `OPENCLAW_EXPERIMENTAL_STAGE_ROUTING=1`.
+- Native handoff: `CODEX_EXPERIMENTAL_STAGE_ROUTING=1`, plus native `features.step_model_switching=true`.
+- Router AUTO authorization must name the exact TEST session hash; both existing manual/session safeguards remain required.
+- Native model catalog, model permissions, managed authority and Node REPL review compatibility remain authoritative. No compatibility flags are falsified.
 
-- [`session/turn.rs`](https://github.com/openai/codex/blob/a956835d020762cb2b570053af06f643a11c0ecc/codex-rs/core/src/session/turn.rs#L3145): `drain_in_flight` awaits the response's tool work before sampling returns. The follow-up loop then captures another step at lines 462–500, and calls `run_sampling_request` at line 524. There is no awaited app-server routing request between those points.
-- [`session/mod.rs`](https://github.com/openai/codex/blob/a956835d020762cb2b570053af06f643a11c0ecc/codex-rs/core/src/session/mod.rs#L3808): `capture_step_context_inner` snapshots `next_step_settings` under the active-turn lock. A later update cannot alter that captured request.
-- [`session/step_activation.rs`](https://github.com/openai/codex/blob/a956835d020762cb2b570053af06f643a11c0ecc/codex-rs/core/src/session/step_activation.rs#L233): `apply_turn_settings` validates model metadata, live authority and the exact active task before publication. `applied` means publication, not proof that the immediately following request captured it. `TurnContext::with_model` exists, but is not a public routing callback.
-- Installed OpenClaw adapter `dist/.setup/run-attempt-BW9kt8Xq.mjs:7904–8021` passes the turn model in `turn/start`. No `turn/settings/update` caller is present in its installed adapter. Native `PostToolUse` is per-tool, not an all-tools-settled boundary; async native-tool completion observations cannot delay capture. The generated server-request union contains no stage/pre-sampling routing callback. `currentTime/read` is for clock service and, in this loop, occurs **after** capture; it is not a model-routing seam.
+The stock installed settings API already supports active-turn changes; stock Codex/OpenClaw lacks this synchronous handoff. The extension implements that missing seam rather than using a notification race or changing only the outgoing request's model string.
 
-**M0: NO-GO for the requested supported, autonomous stage integration on these installed builds.** A correct minimal upstream extension would await one opt-in, bounded host request after the whole work batch settles and before follow-up step capture. The adapter would call the existing proposal policy with authoritative stage/manual/eligibility state, await native settings validation/publication, and only then release capture. No new classifier is needed. This cannot be enabled by router configuration or a notification listener. No uncompiled Codex fork or timing workaround is shipped here.
+## Validation and evidence boundaries
 
-## Installed-binary offline API test
+- Focused adapter/policy tests: **10 passed**. Typecheck and router build passed.
+- Compiled native integration tests passed both an automatic mock-provider A → B → A continuation and an incompatible-model rejection. These exercise the awaited boundary, without holding a tool response or sending a settings RPC from the test.
+- Synthetic catalogs and scripted Responses output establish native requested identities and context/tool-receipt preservation, **not real model execution**.
+- Complete Gateway mock: **passed**, three requests in one turn, two native `Applied` outcomes, original context and both plan receipts preserved.
+- Real provider integration: **passed** on 19 October 2026. Six requests in one native turn executed **gpt-6.1-sol → gpt-6-sol → gpt-6.1-sol**. Each completed provider response reported the corresponding requested model and nonzero output tokens. Both native changes preceded the next request. The file/sorting/proof task completed correctly; original context reached every request and task tool receipts survived both switches.
+- A terminal Gateway `final` event alone is not a passing test. Earlier uninstrumented attempts are excluded. Read-only/pre-inference attempts exposed a duplicate session label, local reserved-compaction registration, custom-command custody restriction and an invalid reserved-provider override; those fixture issues were corrected without disabling their guards.
+- Real cached metadata marks Luna's Node REPL review requirement differently from Sol. That native guard is retained. The verified real-model pair is `gpt-6.1-sol` / `gpt-6-sol`; cost savings are not established.
 
-`tests/codex-runtime.integration.test.ts` runs the real installed binary in a temporary home with **no credentials**, a loopback scripted Responses provider, retries disabled and a 20-second subprocess deadline. It reuses `proposeStageRoute`, receives `status=applied` twice, and independently inspects three local HTTP request bodies: `gpt-6-sol → gpt-6-luna → gpt-6-sol`. All three requests belong to one successfully completed turn; original task context and both dynamic-tool receipts reach the final request.
+The sanitized [live result](../experimental/issue42-live-result.json) separates decisions, native settings outcomes and provider-executed identities. Raw wire evidence remains private; its digest is recorded.
 
-**This is not live model execution.** Both catalog entries deliberately clone identical upstream model metadata. A held dynamic tool supplies synthetic synchronization; that tool is still pending, so this does **not** establish the required response-complete/all-tools-settled stage callback. Real target compatibility, persisted manual state, OpenClaw authorization, actual provider execution, compaction and caches are not verified by this test. No production or TEST runtime/configuration was changed; no live inference was attempted. There is consequently no restoration mutation to perform.
+| Sample | Requested and provider-reported model | Input tokens | Cached input |
+| --- | --- | ---: | ---: |
+| 1 | gpt-6.1-sol | 22,179 | 0 |
+| 2 | gpt-6.1-sol | 22,318 | 22,016 |
+| 3 | gpt-6-sol | 26,303 | 0 |
+| 4 | gpt-6.1-sol | 30,270 | 22,144 |
+| 5 | gpt-6.1-sol | 30,521 | 30,080 |
+| 6 | gpt-6.1-sol | 30,721 | 30,336 |
 
-Run explicitly (otherwise this integration test is skipped):
+Changed-goal decisions took **1.54–1.61 ms**; the two awaited native handoff/application measurements were **11.03 / 14.26 ms**. Returning to the original model reused cached input; the first request to the other model had no cached input. These are one small HTTP test's observations, not a cost-saving or general-performance benchmark. Total reported input/cached-input/output tokens: **162,312 / 104,576 / 1,169**.
+
+Turn-level OpenClaw diagnostics continued to name the original model; they are not treated as per-stage execution evidence. The correlated post-admission wire requests and provider completions establish the real switches.
+
+Opt-in native integration (uses an isolated temporary home, no credentials, and only a loopback scripted provider):
 
 ```bash
-ISSUE42_CODEX_BIN=/absolute/path/to/installed/codex \
+ISSUE42_STAGE_BIN=/absolute/path/to/patched/codex-app-server \
 ISSUE42_MODEL_CATALOG=/absolute/path/to/rust-v0.160.0/codex-rs/models-manager/models.json \
-npm test -- tests/stage-routing.test.ts tests/codex-runtime.integration.test.ts
+npm test -- tests/codex-runtime.integration.test.ts
 ```
 
-Keep PR #47 **draft and unmerged**. Genuine mid-turn switching by real models remains **not demonstrated**. There are no real-model latency, charge or cache observations.
+Do not set `ISSUE42_CODEX_BIN` for this run: that separately enables the already-completed installed-binary API/held-tool proof, not the new boundary test.
 
-Validation: focused policy + installed-binary tests **8/8 passed**; typecheck and build passed. A broad run against an accidentally shared OpenClaw 2026.10.4 dependency had **90 passed / 1 failed** (missing pinned hashed Gateway module). With the correct pinned 2026.9.8 dependency, **89 passed / 2 timed out** at the existing 5-second authorization-test import limit; both authorization tests then passed in a focused rerun with a 60-second ceiling (4.19 seconds for the file). No source changes or skipped authorization checks were used to resolve these local dependency/import issues. No Issue #7/#8 live acceptance tests were repeated.
+## TEST-only fixtures
 
-Offline validation when a suitable Node 24+/npm environment is available:
+The wire-observer and no-inference-retries patches are validation fixtures, not router dependencies. They record post-admission request model/turn identities, content-presence booleans, native settings outcomes and provider completion/usage fields; never credentials, headers or conversation content. Mock mode substitutes canned provider responses only beneath the existing admission/auth checks. It must fail closed if that owned inference route is unavailable.
 
-```bash
-npm run typecheck
-npm test -- tests/stage-routing.test.ts
-```
+The local-harness fixture (`OPENCLAW_STAGE_LOCAL_HARNESS=1`) declines the optional reserved native-compaction capability and `/codex` command. Local plugins cannot claim those privileged registrations. It uses the ordinary public harness-registration API without altering ownership checks. Compaction is outside this small test's scope; native review/model permissions remain enforced.
 
-Project CI runs the existing complete checks on pull requests. No additional live tests or repeated Issue #8 acceptance are needed for this offline policy module.
+An `appServer.command` override is not admitted to OpenClaw's parent-local inference custody. The complete TEST therefore backs up its original managed native executable, atomically installs the explicitly experimental compiled app-server in that TEST-only slot, leaves the managed launcher and artifact/ownership checks intact, and uses app-server arguments without the CLI subcommand. Restoration includes the original native binary's byte hash. This is not an official released binary or a production installation procedure.
+
+`codex-0.160.0-test-no-retries.patch` adds the TEST-only `CODEX_STAGE_TEST_NO_RETRIES=1` flag: the built-in OpenAI provider keeps its native definition, but uses zero request/stream retries and HTTP instead of WebSockets. Native configuration forbids overriding the reserved `model_providers.openai` entry; the fixture does not bypass that validation. Normal defaults are unchanged when the flag is absent.
+
+OpenClaw captures plugin artifacts. Use the documented explicit `plugins.load.paths` override to select the patched local TEST plugin, and verify its loaded fixture marker before sending a task. Editing an inactive installed copy or assuming an API-key route is the OAuth route is insufficient. `scripts/experimental/gateway-stage-test.mjs` is restricted to loopback port 19879, performs no automatic task resends, and supports a read-only config/catalog preflight.
+
+Keep the TEST baseline byte-for-byte restoration receipts outside the repository. Do not include private session configuration or credentials in commits. No Issue #7/#8 live acceptance reruns are part of this experiment.
