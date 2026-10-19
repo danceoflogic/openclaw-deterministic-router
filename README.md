@@ -9,6 +9,10 @@ The project is designed for one job: **route each eligible OpenClaw turn to an e
 
 > **Project status (18 October 2026): functional routing beta verified in isolated OpenClaw 2026.10.4 TEST.** Five ordinary-turn controls and independent existing-child and **first-turn** `sessions_spawn` routing passed. A child was routed to Luna on its very first turn via `spawn-parent`, without an explicit child model override. [PR #40](https://github.com/danceoflogic/openclaw-deterministic-router/pull/40) is merged into `main`. TEST was restored; production was untouched. Provider-request verification, live lifecycle fault cases, actual cost savings and wider rollout remain separate. See [PROGRESS.md](PROGRESS.md).
 
+## Research and experimental results
+
+Research questions, full investigation plans, reproducible benchmarks, and evidence-labelled findings are indexed in **[research/](research/README.md)**. In particular, see [Issue #42 runtime forensics](research/studies/issue-42-runtime-forensics/README.md) for the planned end-to-end Codex tracing and initial High-vs-Adaptive usage observations. Experimental evidence is not production approval.
+
 ## Why this exists
 
 OpenClaw can run different providers and model tiers, but inherited/default model state can make a cost-control strategy surprisingly opaque. This plugin makes routing a visible deterministic policy:
